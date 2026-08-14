@@ -1,15 +1,10 @@
 name: build
 
-# 触发：
-#   - push 到 main：构建并上传产物（Actions 页可直接下载）
-#   - 推送 v* tag（如 v1.0.0）：构建 + 自动创建 GitHub Release，附带打包文件
-#   - 对 main 的 PR：构建检查（不发布）
+# 触发：只在推送 v* 标签时构建打包 + 自动创建 Release（如 v1.0.0）。
+# push 到 main / PR 不再触发，避免每次提交都耗 CI 额度。
 on:
   push:
-    branches: [main]
     tags: ['v*']
-  pull_request:
-    branches: [main]
 
 concurrency:
   group: build-${{ github.ref }}
