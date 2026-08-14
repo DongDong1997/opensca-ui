@@ -1,123 +1,138 @@
-# OpenSCA UI
+<div align="center">
 
-桌面图形界面版 [opensca-cli](https://github.com/XmirrorSecurity/OpenSCA-cli)：基于 **Wails v2 + Vue 3 + Naive UI**，单 exe 文件（~12MB），双击即开浏览器。
+<img src="build/appicon.png" width="96" alt="OpenSCA UI" />
 
-## 功能
+# 🛡️ OpenSCA UI
 
-- 📁 选择项目目录 / 压缩包 / 拖拽上传
-- 🚀 多任务并发扫描（默认 3，可调）
-- 📜 实时日志流 + 进度条
-- 🔍 漏洞结果可视化（表格 + 严重度筛选 + 详情抽屉）
-- 💾 报告导出（HTML / JSON / Excel，由 opensca-cli 原生生成）
-- 🌗 浅色 / 深色模式
-- ⚙️ CLI 路径、token、本地漏洞库、并发上限配置
+**English** | **简体中文**
 
-## 快速开始
+开源软件成分分析（SCA）工具的桌面图形化客户端，基于 [Wails](https://wails.io) 封装 [opensca-cli](https://github.com/XmirrorSecurity/OpenSCA-cli)。
+**安装即用，无需单独下载 CLI。**
 
-### 开发模式
+![Release](https://img.shields.io/github/v/release/DongDong1997/opensca-ui?style=flat-square&logo=github)
+![Downloads](https://img.shields.io/github/downloads/DongDong1997/opensca-ui/total?style=flat-square)
+![CI](https://img.shields.io/github/actions/workflow/status/DongDong1997/opensca-ui/build.yml?style=flat-square&logo=githubactions)
+![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Wails](https://img.shields.io/badge/Wails-v2-DF0000?style=flat-square)
+![Vue](https://img.shields.io/badge/Vue-3.5-42b883?style=flat-square&logo=vuedotjs&logoColor=white)
+![License](https://img.shields.io/github/license/DongDong1997/opensca-ui?style=flat-square)
+
+</div>
+
+**OpenSCA UI** 是开源软件成分分析工具 [OpenSCA](https://opensca.xmirror.cn/) 的桌面客户端。选择项目目录或压缩包即可发起扫描，自动识别组件清单并检测已知漏洞（CVE/CWE），输出可读的漏洞报告。
+
+内置 `opensca-cli`，安装后立即可用；支持多任务并发、实时日志、深浅色主题、CLI 一键更新。
+
+## ✨ 功能特性
+
+- 📁 **多方式发起扫描**：选择文件夹 / 压缩包，或直接拖拽到窗口
+- 🚀 **多任务并发**：默认并发 3，可在设置中调整（1–10）
+- 📜 **实时进度与日志**：逐行 stdout 流式输出，任务状态全程可见
+- 🔍 **漏洞可视化**：组件清单、严重级别、CVE/CWE、修复建议；支持筛选与详情抽屉
+- 📊 **报告导出**：HTML / JSON / Excel（由 opensca-cli 原生生成）
+- 🌗 **浅色 / 深色主题**
+- 🔄 **CLI 管理**：内置 CLI、版本更新检测、一键下载替换
+- ⚙️ **丰富设置**：CLI 路径、云 / 本地漏洞库 token、报告目录、并发上限
+
+## 📥 安装
+
+到 [Releases](https://github.com/DongDong1997/opensca-ui/releases) 下载最新版本：
+
+| 文件 | 说明 |
+|---|---|
+| `opensca-ui-<version>-amd64-installer.exe` | NSIS 安装包（推荐，安装时自动配置内置 CLI） |
+| `opensca-ui-<version>.exe` | 免安装单文件版 |
+
+> 安装包与单文件版均已内嵌 opensca-cli，安装 / 解压后打开即用，**无需额外下载**。
+> CLI 默认使用安装路径下的内置版本，也可以在「设置 → CLI」中改为其他路径（个人选择会被保留）。
+
+## 🚀 开发
+
+环境要求：**Go 1.25+**、**Node.js 20.19+ / 22.12+**、[Wails CLI](https://wails.io/docs/gettingstarted/installation) v2。
 
 ```bash
-cd opensca-ui
-wails dev          # 自动启动 Vite dev server + Go 后端
+# 1. 拉取内置 opensca-cli（internal/bundle/opensca-cli.exe，约 20MB，仅首次需要）
+powershell -ExecutionPolicy Bypass -File scripts\fetch-cli.ps1
+
+# 2. 开发模式：自动启动 Vite dev server + Go 后端
+wails dev
 ```
 
-首次运行会自动生成 `frontend/wailsjs/` 绑定。
+## 🔨 构建与发布
 
-### 生产构建
+```powershell
+# 单文件 exe + NSIS 安装包（版本号取自 wails.json）
+powershell -ExecutionPolicy Bypass -File build.ps1
+```
+
+项目已配置 GitHub Actions，**推送 `v*` 标签**（如 `v1.0.0`）会自动构建并发布 Release：
 
 ```bash
-powershell -ExecutionPolicy Bypass -File scripts\fetch-cli.ps1   # ① 拉取内置 opensca-cli（如已放置可跳过）
-wails build               # 单文件 exe 到 build/bin/opensca-ui.exe（已内嵌 opensca-cli）
-wails build -nsis         # 加 NSIS 安装包（需先安装 NSIS）
+git tag -a v1.0.0 --cleanup=verbatim -m "发布 v1.0.0" -m "# 本次更新
+
+- 新增：xxx
+- 修复：xxx"
+git push origin v1.0.0
 ```
 
-### 内置 opensca-cli
+> Release 正文自动使用 tag 注解消息；`--cleanup=verbatim` 可保留以 `#` 开头的 Markdown 标题。
 
-应用把 **opensca-cli.exe 直接打包进安装包**（`go:embed`），用户装完软件即可扫描，
-**无需再单独下载 opensca-cli**。NSIS 安装器会把内置 CLI 装到**安装路径**
-（与应用 exe 同一目录），并作为默认 CLI 路径；用户仍可在设置页改成别的路径（设置都会保留）。
-
-- 内置文件位置：`internal\bundle\opensca-cli.exe`（真实 exe，约 20MB）
-- 安装后位置：`安装路径\opensca-cli.exe`（与 `opensca-ui.exe` 同目录）
-- 更新内置版本：运行 `scripts\fetch-cli.ps1`（拉最新版）或手动覆盖该文件
-- 构建发布包前请确认该文件是真实 exe（build 脚本会校验，占位文件会告警）
-- 单文件 exe / 直接拷贝运行：首次启动会从嵌入字节把 CLI 解包到应用同目录
-- 用户已配置过路径时，启动不会覆盖其设置；安装路径下已被"下载并替换"
-  更新过的 CLI 也不会被内置旧版覆盖
-
-## 项目结构
+## 📁 项目结构
 
 ```
 opensca-ui/
-├── main.go              # Wails 启动入口
-├── app.go               # 绑定到前端的方法（GetConfig/StartScan/CancelScan/...）
-├── wails.json           # Wails 构建配置
+├── main.go                # Wails 启动入口
+├── app.go                 # 前端绑定方法（GetConfig / StartScan / CancelScan …）
+├── wails.json             # Wails 构建配置
+├── build.ps1              # 一键构建脚本（exe + NSIS 安装包）
 ├── internal/
-│   ├── bundle/          # 内置 opensca-cli（go:embed 打包，安装到应用同目录）
-│   ├── config/          # 配置管理（%APPDATA%/opensca-ui/config.json）
-│   ├── scanner/         # 扫描任务管理器（worker pool + subprocess）
-│   └── platform/        # 跨平台路径（%APPDATA% 等）
+│   ├── bundle/            # 内置 opensca-cli（go:embed 打包，安装到应用同目录）
+│   ├── config/            # 配置管理（%APPDATA%/opensca-ui/config.json）
+│   ├── scanner/           # 扫描任务管理器（worker pool + subprocess）
+│   └── platform/          # 跨平台路径
 ├── scripts/
-│   └── fetch-cli.ps1    # 拉取最新 opensca-cli 放入 internal/bundle/
-├── frontend/
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── tsconfig.json
-│   ├── wailsjs/         # Wails 自动生成的 JS/TS 绑定（勿手改）
+│   └── fetch-cli.ps1      # 拉取内置 opensca-cli
+├── frontend/              # Vue 3 前端
 │   └── src/
-│       ├── main.ts      # Vue 入口
-│       ├── App.vue      # 顶层 Providers（Naive UI + Router）
-│       ├── router.ts    # vue-router 配置（含未配置 CLI 时强制跳 /welcome）
-│       ├── api/
-│       │   ├── index.ts   # 绑定集中重导出
-│       │   └── types.ts   # 业务类型（Task/Report/Vuln/...）
-│       ├── composables/   # useWailsEvent/useTaskStream/useTheme
-│       ├── stores/        # Pinia: tasks/config/ui
-│       ├── components/    # DropZone/TaskCard/LogViewer/VulnTable/...
-│       └── views/         # Welcome/Scan/Tasks/Report/Settings
-└── build/               # Wails 资源 + 构建产物
-    └── bin/
-        └── opensca-ui.exe
+│       ├── views/         # Welcome / Scan / Tasks / Report / Settings
+│       ├── stores/        # Pinia：tasks / config / ui
+│       ├── components/    # DropZone / TaskCard / LogViewer / VulnTable …
+│       └── composables/   # useWailsEvent / useTaskStream / useTheme
+└── build/                 # Wails 资源（图标 / NSIS 脚本）与构建产物
 ```
 
-## 技术栈
+## 🧱 技术栈
 
-- **后端**：Go 1.23+ / Wails v2.14 / 子进程调用 opensca-cli
-- **前端**：Vue 3.5 / TypeScript 5.6 / Vite 7
-- **UI 库**：Naive UI 2.40（暗色主题支持）
-- **状态管理**：Pinia 2.2
-- **路由**：vue-router 4（hash mode，桌面应用无服务端）
+| 层 | 技术 |
+|---|---|
+| 桌面框架 | [Wails v2](https://wails.io)（Go + WebView2） |
+| 后端 | Go 1.25，子进程调用 opensca-cli |
+| 前端 | Vue 3.5 / TypeScript 5.6 / Vite 7 |
+| UI 库 | Naive UI 2.40（支持暗色主题） |
+| 状态管理 | Pinia 2.2 |
+| 路由 | vue-router 4（hash 模式，桌面应用无服务端） |
 
-## 数据落盘位置
+## 💾 数据位置
 
 | 内容 | 路径 |
 |---|---|
-| 配置 | `%APPDATA%/opensca-ui/config.json` |
-| 内置 CLI | `安装路径/opensca-cli.exe`（与应用 exe 同目录） |
-| 任务报告 | `%APPDATA%/opensca-ui/reports/<taskID>.json` |
-| 任务日志 | `%APPDATA%/opensca-ui/logs/<taskID>.log` |
+| 配置 | `%APPDATA%\opensca-ui\config.json` |
+| 内置 CLI | `安装路径\opensca-cli.exe`（与应用 exe 同目录） |
+| 任务报告 | `%APPDATA%\opensca-ui\reports\<taskID>.json` |
+| 任务日志 | `%APPDATA%\opensca-ui\logs\<taskID>.log` |
 
-## 事件协议（Go → 前端）
+## 🔒 安全提示
 
-| 事件 | 含义 |
-|---|---|
-| `scan:queued` | 任务已入队 |
-| `scan:started` | worker 开始执行 |
-| `scan:progress` | 进度更新（含 stage） |
-| `scan:log` | stdout 逐行 |
-| `scan:update` | 状态机迁移 |
-| `scan:done` | 终态（success/failed/canceled） |
-| `scan:error` | 入参/启动/解析错误 |
+云漏洞库 token 目前**明文存储**于 `config.json`：
 
-订阅方式见 [`frontend/src/composables/useWailsEvent.ts`](frontend/src/composables/useWailsEvent.ts)。
+- 请勿将配置文件所在的目录整体公开
+- 仅使用本地漏洞库（`-db`）时，token 可留空
 
-## Token 安全提示
+## 🤝 致谢
 
-云漏洞库 token 目前**明文存**在 `%APPDATA%/opensca-ui/config.json`，建议：
+- [XmirrorSecurity/OpenSCA-cli](https://github.com/XmirrorSecurity/OpenSCA-cli) — 底层扫描引擎
+- [Wails](https://wails.io) — 桌面应用框架
 
-- 不要把整个 `opensca-ui` 目录加入公共仓库
-- 仅使用本地漏洞库（`-db`）时可让 token 留空
+## 📄 License
 
-## License
-
-MIT
+[MIT](LICENSE) © 2026 Panda97
