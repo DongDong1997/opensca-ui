@@ -4,7 +4,7 @@
 
 # 🛡️ OpenSCA UI
 
-**English** | **简体中文**
+[English](README.en.md) | **简体中文**
 
 开源软件成分分析（SCA）工具的桌面图形化客户端，基于 [Wails](https://wails.io) 封装 [opensca-cli](https://github.com/XmirrorSecurity/OpenSCA-cli)。
 **安装即用，无需单独下载 CLI。**
