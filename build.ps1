@@ -47,12 +47,19 @@ if (-not (Test-Path $bundleCli) -or (Get-Item $bundleCli).Length -lt 1MB) {
 }
 
 # 3. 调 wails build
-#    依次找 wails.exe：GOPATH\bin（CI 里 go install 的落盘处）→ 本机老路径 → PATH。
+#    依次找 wails.exe：go env GOPATH\bin（CI/本机的 go install 落盘处）→
+#    %USERPROFILE%\go\bin（老默认位置）→ PATH 里的 wails。
+#    注意：CI runner 上 $env:GOPATH 可能是空（Go 内部用默认值），所以用 `go env` 解析。
+$wailsCandidates = @()
+$goCmd = Get-Command go -ErrorAction SilentlyContinue
+if ($goCmd) {
+    $gopath = (& $goCmd.Source env GOPATH) -join ''
+    if ($gopath) { $wailsCandidates += (Join-Path $gopath 'bin\wails.exe') }
+}
+if ($env:USERPROFILE) { $wailsCandidates += (Join-Path $env:USERPROFILE 'go\bin\wails.exe') }
+
 $wailsExe = $null
-foreach ($candidate in @(
-    (Join-Path $env:GOPATH 'bin\wails.exe'),
-    'C:\Users\hdec\go\bin\wails.exe'
-)) {
+foreach ($candidate in $wailsCandidates) {
     if ($candidate -and (Test-Path $candidate)) { $wailsExe = $candidate; break }
 }
 if (-not $wailsExe) {
