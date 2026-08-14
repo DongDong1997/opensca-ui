@@ -41,14 +41,23 @@ if ($Version) {
         $cfg = Get-Content $wailsJsonPath -Raw | ConvertFrom-Json
         Write-Host "已把 wails.json productVersion 回写为 $Version" -ForegroundColor Yellow
     }
-    # 同步前端元数据版本，避免 package.json 与 wails.json 漂移
+    # 同步前端元数据版本，避免 package.json 与 wails.json 漂移。
+    # 不能用 ConvertFrom-Json 来回写 package-lock.json：lockfileVersion 3 的
+    # packages[""] 是空字符串键，PowerShell 解析不了（PS7 报 "property whose name
+    # is an empty string"，PS5.1 直接抛错）。两个文件都用文本替换，只改"根包"的版本：
+    #   - package.json：顶层 "version"（2 空格缩进，全文件唯一）；
+    #   - package-lock.json：顶层 "name" 后面的 "version"，以及 packages[""] 里的 "version"。
+    # 依赖项自己的 "version" 不在上述位置，不会被误伤；其余内容逐字节保留。
     foreach ($p in @('frontend\package.json', 'frontend\package-lock.json')) {
         $path = Join-Path $PSScriptRoot $p
         if (-not (Test-Path $path)) { continue }
-        $j = Get-Content $path -Raw | ConvertFrom-Json
-        $j.version = $Version
-        if ($j.packages -and $j.packages.'') { $j.packages.''.version = $Version }
-        [System.IO.File]::WriteAllText($path, ($j | ConvertTo-Json -Depth 100))
+        $raw = Get-Content $path -Raw
+        if ($p -like '*package-lock.json') {
+            $raw = [regex]::Replace($raw, '("name": "[^"]*",\r?\n\s*"version":\s+)"[^"]*"', ('${1}"' + $Version + '"'))
+        } else {
+            $raw = [regex]::Replace($raw, '(?m)^(\s{2}"version":\s+)"[^"]*"', ('${1}"' + $Version + '"'))
+        }
+        [System.IO.File]::WriteAllText($path, $raw)
     }
     Write-Host "已同步 frontend/package.json 与 package-lock.json 版本为 $Version" -ForegroundColor DarkGray
 }

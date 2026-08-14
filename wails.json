@@ -13,7 +13,7 @@
   "info": {
     "companyName": "pandaDong",
     "productName": "OpenSCA UI",
-    "productVersion": "1.0.0",
+    "productVersion": "1.1.0",
     "copyright": "Copyright (c) 2026 pandaDong",
     "comments": "GUI frontend for opensca-cli (XmirrorSecurity/OpenSCA-cli)"
   }
