@@ -1,0 +1,71 @@
+name: build
+
+# 触发：
+#   - push 到 main：构建并上传产物（Actions 页可直接下载）
+#   - 推送 v* tag（如 v1.0.0）：构建 + 自动创建 GitHub Release，附带打包文件
+#   - 对 main 的 PR：构建检查（不发布）
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # softprops/action-gh-release 创建 Release 需要
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install NSIS (makensis)
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+
+      # internal/bundle/opensca-cli.exe 不在 git 里（.gitignore），
+      # 先拉真实 CLI 才能通过 go:embed 编译。
+      - name: Fetch bundled opensca-cli
+        shell: pwsh
+        run: ./scripts/fetch-cli.ps1 -Version v3.0.11
+        # 升级内置 CLI 版本时，改这里的 -Version 即可。
+
+      - name: Build (wails build -clean -nsis)
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensca-ui-windows
+          path: build/bin/
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/bin/*
+          generate_release_notes: true

@@ -25,7 +25,17 @@ if (-not $version) {
 Write-Host "Building OpenSCA UI v$version ..." -ForegroundColor Cyan
 
 # 2. 把 Go / Node / NSIS 加到 PATH（让 Wails CLI 能找到编译器和 makensis）
-$env:Path = 'D:\App\NSIS;D:\App\Go\bin;D:\App\NodeJS;' + $env:Path
+#    只 prepend 实际存在的目录：本地开发机工具装在 D:\App\...；
+#    GitHub Actions 里由 setup-go / setup-node / choco 提供（大多已在 PATH），
+#    这里做兜底，避免拼出无效路径。
+$toolDirs = @(
+    'D:\App\NSIS', 'D:\App\Go\bin', 'D:\App\NodeJS',
+    "$env:GOPATH\bin",
+    'C:\Program Files (x86)\NSIS', 'C:\Program Files\NSIS'
+)
+foreach ($p in $toolDirs) {
+    if ($p -and (Test-Path $p)) { $env:Path = "$p;$env:Path" }
+}
 
 # 2.5 校验内置 CLI：internal/bundle/opensca-cli.exe 必须是真实 exe（>1MB），
 #     否则 go:embed 打包进去的是占位文件，用户装完仍要手动下载 CLI。
@@ -37,10 +47,22 @@ if (-not (Test-Path $bundleCli) -or (Get-Item $bundleCli).Length -lt 1MB) {
 }
 
 # 3. 调 wails build
-$wailsExe = 'C:\Users\hdec\go\bin\wails.exe'
-if (-not (Test-Path $wailsExe)) {
-    throw "找不到 $wailsExe，请先执行: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2"
+#    依次找 wails.exe：GOPATH\bin（CI 里 go install 的落盘处）→ 本机老路径 → PATH。
+$wailsExe = $null
+foreach ($candidate in @(
+    (Join-Path $env:GOPATH 'bin\wails.exe'),
+    'C:\Users\hdec\go\bin\wails.exe'
+)) {
+    if ($candidate -and (Test-Path $candidate)) { $wailsExe = $candidate; break }
 }
+if (-not $wailsExe) {
+    $cmd = Get-Command wails -ErrorAction SilentlyContinue
+    if ($cmd) { $wailsExe = $cmd.Source }
+}
+if (-not $wailsExe) {
+    throw "找不到 wails.exe，请先执行: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2"
+}
+Write-Host "使用 wails: $wailsExe" -ForegroundColor DarkGray
 
 & $wailsExe build -clean -nsis -o "opensca-ui-$version.exe"
 exit $LASTEXITCODE
