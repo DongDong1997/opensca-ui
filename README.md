@@ -34,6 +34,12 @@
 - 🔄 **CLI 管理**：内置 CLI、版本更新检测、一键下载替换
 - ⚙️ **丰富设置**：CLI 路径、云 / 本地漏洞库 token、报告目录、并发上限
 
+## 🖼️ 界面预览
+
+<!-- 把主界面截图放到 docs/ 目录后，取消注释下面一行即可显示：
+<img src="docs/screenshot.png" alt="OpenSCA UI 主界面" width="800" />
+-->
+
 ## 📥 安装
 
 到 [Releases](https://github.com/DongDong1997/opensca-ui/releases) 下载最新版本：

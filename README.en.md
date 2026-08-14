@@ -34,6 +34,12 @@ A desktop GUI client for open-source Software Composition Analysis (SCA), built 
 - 🔄 **CLI management**: bundled CLI, update checks, one-click download & replace
 - ⚙️ **Rich settings**: CLI path, cloud / local vuln DB token, report directory, concurrency limit
 
+## 🖼️ Screenshots
+
+<!-- Drop a screenshot into docs/ then uncomment the line below:
+<img src="docs/screenshot.png" alt="OpenSCA UI main window" width="800" />
+-->
+
 ## 📥 Installation
 
 Download the latest release from the [Releases](https://github.com/DongDong1997/opensca-ui/releases) page:
