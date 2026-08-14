@@ -36,9 +36,7 @@ A desktop GUI client for open-source Software Composition Analysis (SCA), built 
 
 ## 🖼️ Screenshots
 
-<!-- Drop a screenshot into docs/ then uncomment the line below:
-<img src="docs/screenshot.png" alt="OpenSCA UI main window" width="800" />
--->
+<img src="docs/screenshot.jpg" alt="OpenSCA UI main window" width="800" />
 
 ## 📥 Installation
 

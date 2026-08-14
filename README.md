@@ -36,9 +36,7 @@
 
 ## 🖼️ 界面预览
 
-<!-- 把主界面截图放到 docs/ 目录后，取消注释下面一行即可显示：
-<img src="docs/screenshot.png" alt="OpenSCA UI 主界面" width="800" />
--->
+<img src="docs/screenshot.jpg" alt="OpenSCA UI 主界面" width="800" />
 
 ## 📥 安装
 
