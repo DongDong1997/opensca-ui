@@ -1,0 +1,21 @@
+# ===== 构建产物（wails build / vite build 输出） =====
+build/bin/
+frontend/dist/
+
+# ===== 依赖 =====
+/frontend/node_modules/
+
+# ===== Wails / 前端生成物（每次构建重新生成，不入库） =====
+frontend/wailsjs/
+frontend/package.json.md5
+frontend/.vue-tsc-output.txt
+
+# ===== 构建期下载的临时文件 =====
+build/windows/installer/tmp/
+
+# ===== 日志 =====
+*.log
+
+# ===== 本地开发环境配置 =====
+.claude/
+
