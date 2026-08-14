@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {NButton, NIcon, NText, NSpace, NUpload, NUploadDragger, useMessage} from 'naive-ui'
 import {FolderOpenOutline, CloudUploadOutline, FileTrayFullOutline} from '@vicons/ionicons5'
 import {api} from '@/api'
@@ -9,6 +10,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const {t} = useI18n()
 const dragOver = ref(false)
 const manualPath = ref('')
 
@@ -17,7 +19,7 @@ async function onPickDir() {
     const p = await api.PickDirectory()
     if (p) emit('selected', p)
   } catch (e) {
-    message.error(`选择目录失败: ${String(e)}`)
+    message.error(t('common.pickDirFailed', {msg: String(e)}))
   }
 }
 
@@ -26,7 +28,7 @@ async function onPickZip() {
     const p = await api.PickZip()
     if (p) emit('selected', p)
   } catch (e) {
-    message.error(`选择文件失败: ${String(e)}`)
+    message.error(t('common.pickFileFailed', {msg: String(e)}))
   }
 }
 
@@ -63,22 +65,22 @@ function onDrop(e: DragEvent) {
     @drop="onDrop"
   >
     <NIcon :size="48" :component="FileTrayFullOutline" class="drop-icon" />
-    <NText style="font-size: 16px; margin-bottom: 8px">拖入项目目录或压缩包</NText>
-    <NText depth="3" style="margin-bottom: 16px">或者点击下方按钮选择</NText>
+    <NText style="font-size: 16px; margin-bottom: 8px">{{ t('dropzone.hint') }}</NText>
+    <NText depth="3" style="margin-bottom: 16px">{{ t('dropzone.or') }}</NText>
 
     <NSpace>
       <NButton type="primary" @click="onPickDir">
         <template #icon><NIcon :component="FolderOpenOutline" /></template>
-        选择目录
+        {{ t('dropzone.pickDir') }}
       </NButton>
       <NButton @click="onPickZip">
         <template #icon><NIcon :component="CloudUploadOutline" /></template>
-        选择压缩包
+        {{ t('dropzone.pickZip') }}
       </NButton>
     </NSpace>
 
     <div class="manual-row">
-      <NText depth="3" style="font-size: 12px">或粘贴路径：</NText>
+      <NText depth="3" style="font-size: 12px">{{ t('dropzone.pastePath') }}</NText>
       <NUpload :default-upload="false" :show-file-list="false" />
       <div class="manual-input">
         <input
@@ -87,7 +89,7 @@ function onDrop(e: DragEvent) {
           placeholder="C:\\path\\to\\project"
           @keydown.enter="onManualSubmit"
         />
-        <NButton size="small" @click="onManualSubmit">使用</NButton>
+        <NButton size="small" @click="onManualSubmit">{{ t('dropzone.use') }}</NButton>
       </div>
     </div>
   </div>

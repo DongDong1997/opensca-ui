@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, h, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {
   NCollapse,
   NCollapseItem,
@@ -20,6 +21,8 @@ import type {Vuln, Severity} from '@/api/types'
 const props = defineProps<{components: Array<{name: string; version: string; language: string; vulns: Vuln[]; licenses?: string[]; direct?: boolean}>}>()
 const emit = defineEmits<{(e: 'row-click', v: Vuln): void}>()
 
+const {t} = useI18n()
+
 const search = ref('')
 const severityFilter = ref<Severity[]>([])
 const expandedNames = ref<string[]>([]) // 默认全部收拢；用户点击展开
@@ -28,21 +31,22 @@ const expandedNames = ref<string[]>([]) // 默认全部收拢；用户点击展�
 const componentPage = ref(1)
 const componentPageSize = ref(10)
 
-const severityOptions = [
-  {label: '严重', value: 'critical'},
-  {label: '高危', value: 'high'},
-  {label: '中危', value: 'medium'},
-  {label: '低危', value: 'low'},
-  {label: '提示', value: 'info'}
-]
+// computed：语言切换时选项 label 重新求值
+const severityOptions = computed(() => [
+  {label: t('severity.critical'), value: 'critical'},
+  {label: t('severity.high'), value: 'high'},
+  {label: t('severity.medium'), value: 'medium'},
+  {label: t('severity.low'), value: 'low'},
+  {label: t('severity.info'), value: 'info'}
+])
 
-// 利用难度数字 → 中文标签
+// 利用难度数字 → 标签（t() 响应式）
 function exploitLevelLabel(n: number): string {
   switch (n) {
-    case 1: return '容易'
-    case 2: return '中等'
-    case 3: return '困难'
-    default: return '未知'
+    case 1: return t('vuln.exploit.easy')
+    case 2: return t('vuln.exploit.medium')
+    case 3: return t('vuln.exploit.hard')
+    default: return t('vuln.exploit.unknown')
   }
 }
 
@@ -111,60 +115,60 @@ watch([search, severityFilter], () => {
   componentPage.value = 1
 })
 
-// 每个组件的"折叠面板"内部表格列
-const columns: DataTableColumns<Vuln> = [
+// 每个组件的"折叠面板"内部表格列（computed：locale 变化时列头重渲染）
+const columns = computed<DataTableColumns<Vuln>>(() => [
   {
-    title: '漏洞名称',
+    title: t('vuln.name'),
     key: 'title',
     width: 240,
     ellipsis: {tooltip: NARROW_TOOLTIP_PROPS},
     render: (row) => row.title || '-'
   },
   {
-    title: '风险等级',
+    title: t('vuln.riskLevel'),
     key: 'severity',
     width: 90,
     render: (row) => h(SeverityTag, {severity: row.severity as Severity})
   },
   {
-    title: '漏洞编号',
+    title: t('vuln.vulnId'),
     key: 'id',
     width: 180,
     render: (row) => h(NText, {code: true, depth: 3}, () => row.id || '-')
   },
   {
-    title: '发布日期',
+    title: t('vuln.releaseDate'),
     key: 'releaseDate',
     width: 110,
     render: (row) => row.releaseDate || '-'
   },
   {
-    title: '利用难度',
+    title: t('vuln.exploitLevel'),
     key: 'exploitLevel',
     width: 90,
     render: (row) => exploitLevelLabel(row.exploitLevel ?? 0)
   },
   {
-    title: '攻击类型',
+    title: t('vuln.attackType'),
     key: 'attackType',
     width: 90,
     render: (row) => row.source || '-'
   },
   {
-    title: '漏洞描述',
+    title: t('vuln.description'),
     key: 'description',
     minWidth: 280,
     ellipsis: {tooltip: NARROW_TOOLTIP_PROPS},
     render: (row) => row.description || '-'
   },
   {
-    title: '修复建议',
+    title: t('vuln.suggestion'),
     key: 'suggestion',
     minWidth: 280,
     ellipsis: {tooltip: NARROW_TOOLTIP_PROPS},
     render: (row) => row.suggestion || '-'
   }
-]
+])
 
 function onRow(p: {row: Vuln}) {
   emit('row-click', p.row)
@@ -193,7 +197,7 @@ function sevSummary(vulns: Vuln[]) {
       <NSpace align="center" :size="12" :wrap="false">
         <NInput
           v-model:value="search"
-          placeholder="搜索 漏洞名称 / 编号 / 描述 / 建议"
+          :placeholder="t('vuln.searchPlaceholder')"
           clearable
           style="width: 300px"
         />
@@ -201,19 +205,19 @@ function sevSummary(vulns: Vuln[]) {
           v-model:value="severityFilter"
           multiple
           clearable
-          placeholder="按风险等级筛选"
+          :placeholder="t('vuln.riskFilter')"
           :options="severityOptions"
           style="width: 220px"
         />
         <NText depth="3">
-          共 {{ filteredComponents.length }} 个组件 / {{ totalVulnsShown }} 条漏洞
+          {{ t('vuln.counts', {components: filteredComponents.length, vulns: totalVulnsShown}) }}
         </NText>
       </NSpace>
     </div>
 
     <NEmpty
       v-if="filteredComponents.length === 0"
-      description="没有匹配的漏洞"
+      :description="t('vuln.noMatch')"
       style="margin-top: 40px"
     />
 
@@ -247,7 +251,7 @@ function sevSummary(vulns: Vuln[]) {
               </template>
               {{ c.licenses.join(', ') }}
             </NTooltip>
-            <NTag v-else-if="c.licenses !== undefined" size="tiny" round class="group-license">📜 未知</NTag>
+            <NTag v-else-if="c.licenses !== undefined" size="tiny" round class="group-license">📜 {{ t('vuln.unknownLicense') }}</NTag>
             <NTag v-if="c.language" size="tiny" round>{{ c.language }}</NTag>
             <!-- 依赖方式：true=直接依赖 / false=间接依赖 -->
             <NTag
@@ -256,9 +260,9 @@ function sevSummary(vulns: Vuln[]) {
               :type="c.direct ? 'success' : 'default'"
               class="group-direct"
             >
-              {{ c.direct ? '直接依赖' : '间接依赖' }}
+              {{ c.direct ? t('vuln.direct') : t('vuln.indirect') }}
             </NTag>
-            <NText depth="3" class="group-count">{{ c.vulns.length }} 个漏洞</NText>
+            <NText depth="3" class="group-count">{{ t('report.vulnCountShort', {n: c.vulns.length}) }}</NText>
             <!-- 严重度分布 chip：按 critical → info 顺序 -->
             <NSpace :size="4" :wrap="false">
               <NTag
@@ -266,30 +270,30 @@ function sevSummary(vulns: Vuln[]) {
                 size="tiny"
                 type="error"
                 round
-              >{{ sevSummary(c.vulns).critical }} 严重</NTag>
+              >{{ t('vuln.sevCountCritical', {n: sevSummary(c.vulns).critical}) }}</NTag>
               <NTag
                 v-if="sevSummary(c.vulns).high > 0"
                 size="tiny"
                 type="warning"
                 round
-              >{{ sevSummary(c.vulns).high }} 高危</NTag>
+              >{{ t('vuln.sevCountHigh', {n: sevSummary(c.vulns).high}) }}</NTag>
               <NTag
                 v-if="sevSummary(c.vulns).medium > 0"
                 size="tiny"
                 type="warning"
                 round
-              >{{ sevSummary(c.vulns).medium }} 中危</NTag>
+              >{{ t('vuln.sevCountMedium', {n: sevSummary(c.vulns).medium}) }}</NTag>
               <NTag
                 v-if="sevSummary(c.vulns).low > 0"
                 size="tiny"
                 type="info"
                 round
-              >{{ sevSummary(c.vulns).low }} 低危</NTag>
+              >{{ t('vuln.sevCountLow', {n: sevSummary(c.vulns).low}) }}</NTag>
               <NTag
                 v-if="sevSummary(c.vulns).info > 0"
                 size="tiny"
                 round
-              >{{ sevSummary(c.vulns).info }} 提示</NTag>
+              >{{ t('vuln.sevCountInfo', {n: sevSummary(c.vulns).info}) }}</NTag>
             </NSpace>
           </NSpace>
         </template>

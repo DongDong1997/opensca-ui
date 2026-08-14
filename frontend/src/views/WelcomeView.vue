@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {ref} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NButton, NCard, NIcon, NInput, NResult, NSpace, NText, useMessage} from 'naive-ui'
 import {RocketOutline, FolderOpenOutline, CheckmarkCircleOutline, CloseCircleOutline} from '@vicons/ionicons5'
 import {useConfigStore} from '@/stores/config'
@@ -9,6 +10,7 @@ import {api} from '@/api'
 const router = useRouter()
 const cfg = useConfigStore()
 const message = useMessage()
+const {t} = useI18n()
 
 const cliPath = ref(cfg.cliPath)
 const verifying = ref(false)
@@ -22,13 +24,13 @@ async function pick() {
       lastResult.value = null
     }
   } catch (e) {
-    message.error(`选择失败: ${String(e)}`)
+    message.error(t('common.selectFailed', {msg: String(e)}))
   }
 }
 
 async function verify() {
   if (!cliPath.value.trim()) {
-    message.warning('请先选择或输入路径')
+    message.warning(t('welcome.selectOrInputPath'))
     return
   }
   verifying.value = true
@@ -37,13 +39,13 @@ async function verify() {
     const info = await cfg.setCliPath(cliPath.value.trim())
     lastResult.value = {valid: info.valid, version: info.version, message: info.message}
     if (info.valid) {
-      message.success('CLI 验证成功，进入主界面')
+      message.success(t('welcome.cliSuccess'))
       await new Promise((r) => setTimeout(r, 400))
       router.push('/scan')
     }
   } catch (e) {
     lastResult.value = {valid: false, version: '', message: String(e)}
-    message.error('验证失败')
+    message.error(t('welcome.verifyFailed'))
   } finally {
     verifying.value = false
   }
@@ -55,22 +57,22 @@ async function verify() {
     <NCard class="welcome-card">
       <div class="welcome-hero">
         <NIcon :size="48" color="#18a058" :component="RocketOutline" />
-        <h1>欢迎使用 OpenSCA UI</h1>
-        <NText depth="3">在开始之前，请指定 opensca-cli 可执行文件的路径</NText>
+        <h1>{{ t('welcome.title') }}</h1>
+        <NText depth="3">{{ t('welcome.subtitle') }}</NText>
       </div>
 
       <div class="welcome-form">
-        <NText strong>CLI 路径</NText>
+        <NText strong>{{ t('welcome.cliPath') }}</NText>
         <NSpace :size="8" style="margin-top: 8px">
           <NInput v-model:value="cliPath" placeholder="C:\\path\\to\\opensca-cli.exe" style="width: 480px" />
           <NButton @click="pick">
             <template #icon><NIcon :component="FolderOpenOutline" /></template>
-            浏览
+            {{ t('welcome.browse') }}
           </NButton>
         </NSpace>
         <NSpace style="margin-top: 16px">
           <NButton type="primary" :loading="verifying" :disabled="!cliPath.trim()" @click="verify">
-            验证并进入
+            {{ t('welcome.verifyEnter') }}
           </NButton>
         </NSpace>
 
@@ -78,8 +80,8 @@ async function verify() {
           <NResult
             v-if="lastResult.valid"
             status="success"
-            title="验证通过"
-            :description="`版本: ${lastResult.version || 'unknown'}`"
+            :title="t('welcome.verifyPassed')"
+            :description="t('welcome.version', {version: lastResult.version || 'unknown'})"
           >
             <template #icon>
               <NIcon :size="48" color="#18a058" :component="CheckmarkCircleOutline" />
@@ -88,7 +90,7 @@ async function verify() {
           <NResult
             v-else
             status="error"
-            title="验证失败"
+            :title="t('welcome.verifyFailed')"
             :description="lastResult.message"
           >
             <template #icon>
@@ -101,7 +103,7 @@ async function verify() {
             type="textarea"
             readonly
             :value="(lastResult as any).rawOutput"
-            placeholder="CLI 输出"
+            :placeholder="t('welcome.cliOutput')"
             :autosize="{minRows: 3, maxRows: 8}"
             style="margin-top: 12px; font-family: var(--n-font-family-mono); font-size: 12px"
           />
@@ -110,9 +112,9 @@ async function verify() {
 
       <div class="welcome-help">
         <NText depth="3" style="font-size: 12px">
-          还没下载 opensca-cli？去
+          {{ t('welcome.helpBefore') }}
           <a href="https://github.com/XmirrorSecurity/OpenSCA-cli/releases" target="_blank" rel="noopener">GitHub Releases</a>
-          下载对应系统的版本。
+          {{ t('welcome.helpAfter') }}
         </NText>
       </div>
     </NCard>

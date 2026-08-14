@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, h, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {NDataTable, NTag, NText, NEmpty, NSelect, NSpace, NInput, type DataTableColumns, type DataTableRowKey} from 'naive-ui'
 import SeverityTag from './SeverityTag.vue'
 import type {Vuln, Severity} from '@/api/types'
@@ -7,16 +8,19 @@ import type {Vuln, Severity} from '@/api/types'
 const props = defineProps<{vulns: Vuln[]}>()
 const emit = defineEmits<{(e: 'row-click', v: Vuln): void}>()
 
+const {t} = useI18n()
+
 const search = ref('')
 const severityFilter = ref<Severity[]>([])
 
-const severityOptions = [
-  {label: '严重', value: 'critical'},
-  {label: '高危', value: 'high'},
-  {label: '中危', value: 'medium'},
-  {label: '低危', value: 'low'},
-  {label: '提示', value: 'info'}
-]
+// computed：语言切换时选项 label 重新求值
+const severityOptions = computed(() => [
+  {label: t('severity.critical'), value: 'critical'},
+  {label: t('severity.high'), value: 'high'},
+  {label: t('severity.medium'), value: 'medium'},
+  {label: t('severity.low'), value: 'low'},
+  {label: t('severity.info'), value: 'info'}
+])
 
 const filtered = computed(() => {
   let arr = props.vulns
@@ -36,21 +40,22 @@ const filtered = computed(() => {
   return arr
 })
 
-const columns: DataTableColumns<Vuln> = [
+// computed：locale 变化时列头重渲染（title 直接调用 t()，保证 computed 依赖 locale）
+const columns = computed<DataTableColumns<Vuln>>(() => [
   {
-    title: '严重度',
+    title: t('vuln.severityCol'),
     key: 'severity',
     width: 90,
     render: (row) => h(SeverityTag, {severity: row.severity as Severity})
   },
   {
-    title: '漏洞编号',
+    title: t('vuln.vulnId'),
     key: 'id',
     width: 160,
     render: (row) => h(NText, {code: true, depth: 3}, () => row.id || '-')
   },
   {
-    title: 'CVE',
+    title: t('vuln.cve'),
     key: 'cve',
     width: 160,
     render: (row) => {
@@ -63,13 +68,13 @@ const columns: DataTableColumns<Vuln> = [
     }
   },
   {
-    title: '标题',
+    title: t('vuln.title'),
     key: 'title',
     ellipsis: {tooltip: true},
     render: (row) => row.title || row.description?.slice(0, 60) || '-'
   },
   {
-    title: '受影响组件',
+    title: t('vuln.affectedComponent'),
     key: 'component',
     width: 240,
     render: (row) =>
@@ -79,13 +84,13 @@ const columns: DataTableColumns<Vuln> = [
       ])
   },
   {
-    title: '解决方案',
+    title: t('vuln.solution'),
     key: 'suggestion',
     width: 280,
     ellipsis: {tooltip: true},
     render: (row) => row.suggestion || '-'
   }
-]
+])
 
 function onRow(props: {row: Vuln}) {
   emit('row-click', props.row)
@@ -100,7 +105,7 @@ const checkedRowKeys = ref<DataTableRowKey[]>([])
       <NSpace align="center" :size="12">
         <NInput
           v-model:value="search"
-          placeholder="搜索 漏洞编号 / 标题 / 组件"
+          :placeholder="t('vuln.searchSimplePlaceholder')"
           clearable
           style="width: 280px"
         />
@@ -108,11 +113,11 @@ const checkedRowKeys = ref<DataTableRowKey[]>([])
           v-model:value="severityFilter"
           multiple
           clearable
-          placeholder="按严重度筛选"
+          :placeholder="t('vuln.severityFilter')"
           :options="severityOptions"
           style="width: 220px"
         />
-        <NText depth="3">共 {{ filtered.length }} 条</NText>
+        <NText depth="3">{{ t('vuln.matchCount', {n: filtered.length}) }}</NText>
       </NSpace>
     </div>
     <NDataTable
@@ -126,7 +131,7 @@ const checkedRowKeys = ref<DataTableRowKey[]>([])
       class="vuln-table-body"
       @row-click="onRow"
     />
-    <NEmpty v-if="filtered.length === 0" description="没有匹配的漏洞" style="margin-top: 40px" />
+    <NEmpty v-if="filtered.length === 0" :description="t('vuln.noMatch')" style="margin-top: 40px" />
   </div>
 </template>
 

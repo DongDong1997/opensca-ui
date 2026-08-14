@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {
   NLayout,
   NLayoutHeader,
@@ -33,9 +34,11 @@ const router = useRouter()
 const recent = useRecentStore()
 const cfg = useConfigStore()
 const message = useMessage()
+const {t} = useI18n()
 
-// 软编码版本号：与 SettingsView.vue 关于模块保持一致，未来可换成构建时常量。
-const APP_VERSION = 'v0.1.0'
+// 应用版本号：构建时从 wails.json 的 info.productVersion 注入（build.ps1 同源）。
+// 发布升版本只需改 wails.json，界面自动跟随。
+const APP_VERSION = 'v' + __APP_VERSION__
 
 // 每个项目的本地扫描数（path → count）
 const projectScanCounts = ref<Record<string, number>>({})
@@ -76,13 +79,13 @@ function formatTime(ts: number) {
   const now = Date.now()
   const diff = now - ts
   // 一分钟内
-  if (diff < 60_000) return '刚刚'
+  if (diff < 60_000) return t('home.justNow')
   // 一小时内
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)} 分钟前`
+  if (diff < 3600_000) return t('home.minAgo', {n: Math.floor(diff / 60_000)})
   // 一天内
-  if (diff < 86400_000) return `${Math.floor(diff / 3600_000)} 小时前`
+  if (diff < 86400_000) return t('home.hourAgo', {n: Math.floor(diff / 3600_000)})
   // 一周内
-  if (diff < 7 * 86400_000) return `${Math.floor(diff / 86400_000)} 天前`
+  if (diff < 7 * 86400_000) return t('home.dayAgo', {n: Math.floor(diff / 86400_000)})
   // 否则展示日期
   return d.toLocaleDateString()
 }
@@ -109,18 +112,18 @@ async function openProjectFolder(path: string) {
   try {
     await api.OpenProjectFolder(path)
   } catch (e) {
-    message.error(`打开失败: ${String(e)}`)
+    message.error(t('common.openFailed', {msg: String(e)}))
   }
 }
 
 async function removeOne(path: string) {
   await recent.remove(path)
-  message.success('已从最近列表移除')
+  message.success(t('home.removed'))
 }
 
 async function clearAll() {
   await recent.clear()
-  message.success('最近列表已清空')
+  message.success(t('home.listCleared'))
 }
 
 async function quickNewScan() {
@@ -160,26 +163,26 @@ onMounted(async () => {
           </div>
           <h1 class="hero-title">OpenSCA UI</h1>
           <p class="hero-subtitle">
-            一站式开源软件成分分析与漏洞检测工具
+            {{ t('home.subtitle') }}
           </p>
           <NSpace :size="12" style="margin-top: 28px">
             <NButton type="primary" size="large" round @click="quickNewScan">
               <template #icon>
                 <NIcon :component="RocketOutline" />
               </template>
-              新建扫描
+              {{ t('home.newScan') }}
             </NButton>
             <NButton size="large" round @click="router.push('/history')">
               <template #icon>
                 <NIcon :component="TimeOutline" />
               </template>
-              历史记录
+              {{ t('home.history') }}
             </NButton>
             <NButton size="large" round @click="router.push('/settings')">
               <template #icon>
                 <NIcon :component="SettingsOutline" />
               </template>
-              设置
+              {{ t('home.settings') }}
             </NButton>
           </NSpace>
         </section>
@@ -189,7 +192,7 @@ onMounted(async () => {
           <div class="section-header">
             <NSpace align="center" :size="8">
               <NIcon :size="18" :component="TimeOutline" />
-              <NText strong style="font-size: 15px">最近打开的项目</NText>
+              <NText strong style="font-size: 15px">{{ t('home.recentProjects') }}</NText>
               <NTag v-if="recent.list.length" size="small" round>
                 {{ recent.list.length }}
               </NTag>
@@ -197,29 +200,29 @@ onMounted(async () => {
             <NPopconfirm
               v-if="recent.list.length"
               @positive-click="clearAll"
-              positive-text="清空"
-              negative-text="取消"
+              :positive-text="t('common.clear')"
+              :negative-text="t('common.cancel')"
             >
               <template #trigger>
                 <NButton quaternary size="small" type="error">
                   <template #icon>
                     <NIcon :component="TrashOutline" />
                   </template>
-                  清空
+                  {{ t('common.clear') }}
                 </NButton>
               </template>
-              确认清空所有最近项目？此操作不可撤销。
+              {{ t('home.clearAllConfirm') }}
             </NPopconfirm>
           </div>
 
           <NEmpty
             v-if="!recent.loading && recent.list.length === 0"
-            description="还没有扫描过的项目"
+            :description="t('home.emptyRecent')"
             style="padding: 48px 0"
           >
             <template #extra>
               <NText depth="3" style="font-size: 13px">
-                开始一次扫描后，最近的项目会自动出现在这里
+                {{ t('home.emptyRecentHint') }}
               </NText>
             </template>
           </NEmpty>
@@ -239,7 +242,7 @@ onMounted(async () => {
                 <div class="recent-label">
                   <NText strong>{{ displayLabel(r) }}</NText>
                   <NTag v-if="r.useCount > 1" size="tiny" round style="margin-left: 8px">
-                    扫描过 {{ r.useCount }} 次
+                    {{ t('home.scannedTimes', {n: r.useCount}) }}
                   </NTag>
                   <NTag
                     v-if="projectScanCounts[r.path] > 0"
@@ -251,7 +254,7 @@ onMounted(async () => {
                     <template #icon>
                       <NIcon :component="FolderOpenOutline" />
                     </template>
-                    已存档 {{ projectScanCounts[r.path] }} 条
+                    {{ t('home.archived', {n: projectScanCounts[r.path]}) }}
                   </NTag>
                 </div>
                 <NText depth="3" class="recent-path">{{ r.path }}</NText>
@@ -266,20 +269,20 @@ onMounted(async () => {
                     circle
                     size="small"
                     @click.stop="openProjectFolder(r.path)"
-                    title="打开项目目录"
+                    :title="t('home.openProjectFolder')"
                   >
                     <template #icon>
                       <NIcon :component="FolderOpenOutline" />
                     </template>
                   </NButton>
                 </template>
-                打开项目目录
+                {{ t('home.openProjectFolder') }}
               </NTooltip>
               <NPopconfirm
                 @positive-click="removeOne(r.path)"
                 @click.stop
-                positive-text="移除"
-                negative-text="取消"
+                :positive-text="t('common.remove')"
+                :negative-text="t('common.cancel')"
               >
                 <template #trigger>
                   <NButton
@@ -287,14 +290,14 @@ onMounted(async () => {
                     circle
                     size="small"
                     @click.stop
-                    title="从最近列表移除"
+                    :title="t('home.removeFromRecent')"
                   >
                     <template #icon>
                       <NIcon :component="TrashOutline" />
                     </template>
                   </NButton>
                 </template>
-                从最近列表移除该路径？
+                {{ t('home.removeConfirm') }}
               </NPopconfirm>
             </div>
           </div>

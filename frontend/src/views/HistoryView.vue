@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NEmpty, NSpace, NIcon, NText, NTag, NPagination, useMessage} from 'naive-ui'
 import {FolderOutline} from '@vicons/ionicons5'
 import AppShell from '@/components/AppShell.vue'
@@ -12,6 +13,7 @@ import type {Task} from '@/api/types'
 const tasks = useTasksStore()
 const router = useRouter()
 const message = useMessage()
+const {t} = useI18n()
 
 // 每个文件夹的最新任务：用来识别哪些任务是"历史"
 const latestByFolder = computed<Map<string, Task>>(() => {
@@ -79,7 +81,7 @@ function viewTask(id: string) {
 
 async function cancelTask(id: string) {
   await tasks.cancel(id)
-  message.info('取消请求已发送')
+  message.info(t('tasksRunning.cancelSent'))
 }
 
 async function removeTask(id: string) {
@@ -89,28 +91,28 @@ async function removeTask(id: string) {
 
 <template>
   <AppShell>
-    <NEmpty v-if="latestHistoryByFolder.length === 0" description="暂无历史记录" style="margin-top: 60px" />
+    <NEmpty v-if="latestHistoryByFolder.length === 0" :description="t('history.noHistory')" style="margin-top: 60px" />
     <template v-else>
       <div class="group-list">
-        <div v-for="t in pagedItems" :key="t.path" class="group-block">
+        <div v-for="item in pagedItems" :key="item.path" class="group-block">
           <div class="group-header">
             <NSpace align="center" :size="8">
               <NIcon :component="FolderOutline" :size="18" color="#2080f0" />
-              <NText strong>{{ folderDisplayName(t) }}</NText>
-              <NText depth="3" class="group-path">{{ t.path }}</NText>
+              <NText strong>{{ folderDisplayName(item) }}</NText>
+              <NText depth="3" class="group-path">{{ item.path }}</NText>
               <NTag
-                v-if="(historyCountByPath.get(t.path) ?? 0) > 0"
+                v-if="(historyCountByPath.get(item.path) ?? 0) > 0"
                 size="tiny"
                 round
                 class="history-tag"
-                @click="goFolderHistory(t.path)"
+                @click="goFolderHistory(item.path)"
               >
-                历史 {{ historyCountByPath.get(t.path) }} 条
+                {{ t('history.entryCount', {n: historyCountByPath.get(item.path)}) }}
               </NTag>
             </NSpace>
           </div>
           <TaskCard
-            :task="t"
+            :task="item"
             hide-progress
             @view="viewTask"
             @report="viewTask"

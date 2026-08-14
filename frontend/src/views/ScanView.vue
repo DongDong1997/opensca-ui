@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {ref, computed, onMounted} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NCard, NButton, NSpace, NText, NTag, NInput, NTooltip, useMessage} from 'naive-ui'
 import DropZone from '@/components/DropZone.vue'
 import AppShell from '@/components/AppShell.vue'
@@ -12,11 +13,24 @@ const route = useRoute()
 const tasks = useTasksStore()
 const cfg = useConfigStore()
 const message = useMessage()
+const {t} = useI18n()
 
 const scanPath = ref('')
 const label = ref('')
 const useCloud = ref(false)
 const useLocalDB = ref(false)
+
+// 最近任务列表里状态 tag 的翻译（数据侧是英文 status 枚举）
+const STATUS_KEYS: Record<string, string> = {
+  pending: 'task.status.pending',
+  running: 'task.status.running',
+  success: 'task.status.success',
+  failed: 'task.status.failed',
+  canceled: 'task.status.canceled'
+}
+function statusLabel(s: string) {
+  return t(STATUS_KEYS[s] || 'task.status.pending')
+}
 
 // 项目名：从路径直接推导，固定不可编辑。
 // 规则与后端 Manager.deriveProjectName 保持一致：
@@ -59,15 +73,15 @@ async function onSelected(path: string) {
 
 async function onStart() {
   if (!scanPath.value.trim()) {
-    message.warning('请先选择项目目录')
+    message.warning(t('scan.selectFirst'))
     return
   }
   try {
     const id = await tasks.start({path: scanPath.value.trim(), label: label.value.trim() || undefined})
-    message.success('扫描任务已创建')
+    message.success(t('scan.taskCreated'))
     router.push({name: 'report', params: {id}})
   } catch (e) {
-    message.error(`启动失败: ${String(e)}`)
+    message.error(t('common.startFailed', {msg: String(e)}))
   }
 }
 </script>
@@ -76,72 +90,71 @@ async function onStart() {
 <template>
   <AppShell>
     <div class="scan-page">
-      <NCard title="新建扫描">
+      <NCard :title="t('scan.title')">
         <DropZone @selected="onSelected" />
         <div class="scan-form">
           <NSpace vertical :size="12">
             <div>
-              <NText strong>项目名</NText>
+              <NText strong>{{ t('scan.projectName') }}</NText>
               <NTooltip placement="top" trigger="hover">
                 <template #trigger>
                   <NInput
                     :value="projectName"
-                    placeholder="选择路径后自动从文件夹名生成"
+                    :placeholder="t('scan.projectNamePlaceholder')"
                     readonly
                     disabled
                     style="margin-top: 4px"
                   />
                 </template>
-                项目名绑定该扫描所属项目，作为历史记录分组的依据。
-                取自所选路径的最末段文件夹名（或压缩包去扩展名），无法编辑。
+                {{ t('scan.projectNameTooltip') }}
               </NTooltip>
             </div>
             <div>
-              <NText strong>任务标签（备注）</NText>
+              <NText strong>{{ t('scan.taskLabel') }}</NText>
               <NInput
                 v-model:value="label"
-                placeholder="可选，例如：重构前扫描 / 回归验证"
+                :placeholder="t('scan.labelPlaceholder')"
                 style="margin-top: 4px"
               />
             </div>
             <div>
-              <NText strong>目标路径</NText>
+              <NText strong>{{ t('scan.targetPath') }}</NText>
               <NInput v-model:value="scanPath" placeholder="C:\\path\\to\\project" style="margin-top: 4px" />
             </div>
             <NSpace>
               <NButton type="primary" size="large" :disabled="!scanPath" @click="onStart">
-                开始扫描
+                {{ t('scan.start') }}
               </NButton>
-              <NButton @click="$router.push('/tasks')">查看任务</NButton>
+              <NButton @click="$router.push('/tasks')">{{ t('scan.viewTasks') }}</NButton>
               <NButton quaternary @click="$router.push('/settings')">
-                Token / 漏洞库 在设置中
+                {{ t('scan.tokenHint') }}
               </NButton>
             </NSpace>
           </NSpace>
         </div>
       </NCard>
 
-      <NCard title="最近任务" style="margin-top: 16px">
+      <NCard :title="t('scan.recentTasks')" style="margin-top: 16px">
         <NSpace v-if="tasks.list.length === 0" align="center">
-          <NText depth="3">还没有任务，启动一次扫描试试看</NText>
+          <NText depth="3">{{ t('scan.noTasks') }}</NText>
         </NSpace>
         <NSpace v-else vertical :size="8">
           <div
-            v-for="t in tasks.list.slice(0, 5)"
-            :key="t.id"
+            v-for="task in tasks.list.slice(0, 5)"
+            :key="task.id"
             class="recent-task"
-            @click="$router.push({name: 'report', params: {id: t.id}})"
+            @click="$router.push({name: 'report', params: {id: task.id}})"
           >
             <NTag
-              :type="t.status === 'success' ? 'success' : t.status === 'failed' ? 'error' : t.status === 'running' ? 'info' : 'default'"
+              :type="task.status === 'success' ? 'success' : task.status === 'failed' ? 'error' : task.status === 'running' ? 'info' : 'default'"
               size="small"
             >
-              {{ t.status }}
+              {{ statusLabel(task.status) }}
             </NTag>
-            <NText strong>{{ t.projectName || t.label }}</NText>
-            <NText v-if="t.label" depth="3" style="font-size: 12px">— {{ t.label }}</NText>
+            <NText strong>{{ task.projectName || task.label }}</NText>
+            <NText v-if="task.label" depth="3" style="font-size: 12px">— {{ task.label }}</NText>
             <NText depth="3" style="font-size: 12px; margin-left: auto">
-              {{ new Date(t.startedAt).toLocaleString() }}
+              {{ new Date(task.startedAt).toLocaleString() }}
             </NText>
           </div>
         </NSpace>

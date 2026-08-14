@@ -227,6 +227,11 @@ func (a *App) SetToken(token string) error {
 	return a.cfg.SetToken(token)
 }
 
+// SetLanguage 更新界面语言（zh-CN / en-US），立即落盘。
+func (a *App) SetLanguage(lang string) error {
+	return a.cfg.SetLanguage(lang)
+}
+
 // SetLocalDB 更新本地漏洞库路径。
 func (a *App) SetLocalDB(path string) error {
 	return a.cfg.SetLocalDB(path)
@@ -510,6 +515,16 @@ func (a *App) DownloadAndInstallCliUpdate(downloadURL, targetPath string) (updat
 	res, err := update.DownloadAndInstall(downloadURL, targetPath)
 	if err != nil {
 		return res, err
+	}
+	// CLI 换新后，重放内置辅助文件（config.json / db-demo.json），保证本地漏洞库
+	// 来源不因换 exe 丢失。release zip 里只有 exe、没有 config，所以只能以内嵌版
+	// 为基准；bundle.RefreshAux 只覆盖"缺失/损坏"的 config，用户自配的本地源保留。
+	// 仅当目标是"安装目录里的内置 CLI"才做——用户手动指定的外部 CLI 目录不动。
+	if dir, aerr := bundle.AppDir(); aerr == nil &&
+		strings.EqualFold(filepath.Clean(filepath.Dir(targetPath)), filepath.Clean(dir)) {
+		if aerr := bundle.RefreshAux(dir); aerr != nil {
+			log.Printf("更新后刷新内置 config.json 失败: %v", aerr)
+		}
 	}
 	// 更新完重新探测一次，让顶栏状态立刻刷新
 	if _, cerr := a.CheckCli(targetPath); cerr != nil {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {NCard, NTag, NProgress, NSpace, NButton, NButtonGroup, NIcon, NTooltip, NText} from 'naive-ui'
 import {PlayCircleOutline, CloseCircleOutline, TrashOutline, DocumentTextOutline, FolderOpenOutline} from '@vicons/ionicons5'
 import SeverityTag from './SeverityTag.vue'
@@ -19,15 +20,21 @@ const emit = defineEmits<{
   (e: 'removed', id: string): void
 }>()
 
-const statusMap: Record<TaskStatus, {label: string; type: 'default' | 'info' | 'success' | 'error' | 'warning'; color: string}> = {
-  pending: {label: '等待中', type: 'default', color: '#909399'},
-  running: {label: '运行中', type: 'info', color: '#2080f0'},
-  success: {label: '完成', type: 'success', color: '#18a058'},
-  failed: {label: '失败', type: 'error', color: '#d03050'},
-  canceled: {label: '已取消', type: 'warning', color: '#f0a020'}
+const {t} = useI18n()
+
+// 颜色 / 类型静态，label 随语言取 t()（computed 保证 locale 变化时重新求值）
+const statusMap: Record<TaskStatus, {labelKey: string; type: 'default' | 'info' | 'success' | 'error' | 'warning'; color: string}> = {
+  pending: {labelKey: 'task.status.pending', type: 'default', color: '#909399'},
+  running: {labelKey: 'task.status.running', type: 'info', color: '#2080f0'},
+  success: {labelKey: 'task.status.success', type: 'success', color: '#18a058'},
+  failed: {labelKey: 'task.status.failed', type: 'error', color: '#d03050'},
+  canceled: {labelKey: 'task.status.canceled', type: 'warning', color: '#f0a020'}
 }
 
-const s = computed(() => statusMap[props.task.status as TaskStatus])
+const s = computed(() => {
+  const base = statusMap[props.task.status as TaskStatus]
+  return {label: t(base.labelKey), type: base.type, color: base.color}
+})
 const isRunning = computed(() => props.task.status === 'running' || props.task.status === 'pending')
 const isFinished = computed(
   () => props.task.status === 'success' || props.task.status === 'failed' || props.task.status === 'canceled'
@@ -53,13 +60,23 @@ function formatClock(ts: number): string {
 // 任务卡右下角的时间标签：运行中显示"开始于 ..."，已完成显示"完成于 ..."
 const timeTag = computed(() => {
   if (isFinished.value && props.task.finishedAt > 0) {
-    return `完成于 ${formatClock(props.task.finishedAt)}`
+    return t('taskcard.finishedAt', {time: formatClock(props.task.finishedAt)})
   }
   if (props.task.startedAt > 0) {
-    return `开始于 ${formatClock(props.task.startedAt)}`
+    return t('taskcard.startedAt', {time: formatClock(props.task.startedAt)})
   }
   return ''
 })
+
+// 进度条旁的 stage 文本：数据侧仅有的中文种子值"等待中"渲染时映射；其余后端 stage 原样透传
+const displayStage = computed(() => {
+  if (!props.task.stage) return isRunning.value ? t('common.scanning') : ''
+  return props.task.stage === '等待中' ? t('task.status.pending') : props.task.stage
+})
+
+const durationText = computed(() =>
+  props.task.durationMs > 0 ? t('taskcard.duration', {s: (props.task.durationMs / 1000).toFixed(1)}) : ''
+)
 
 function onCancel() {
   emit('view', props.task.id)
@@ -90,12 +107,12 @@ function onCancel() {
       </div>
       <NSpace>
         <NButton v-if="isRunning" size="tiny" tertiary type="warning" @click.stop="$emit('cancel-task', task.id)">
-          取消
+          {{ t('taskcard.cancel') }}
         </NButton>
         <NButton v-if="canReport" size="tiny" tertiary type="primary" @click.stop="emit('report', task.id)">
-          查看报告
+          {{ t('taskcard.viewReport') }}
         </NButton>
-        <NButton size="tiny" tertiary @click.stop="emit('removed', task.id)">删除</NButton>
+        <NButton size="tiny" tertiary @click.stop="emit('removed', task.id)">{{ t('taskcard.delete') }}</NButton>
       </NSpace>
     </div>
 
@@ -108,8 +125,8 @@ function onCancel() {
         :height="6"
       />
       <NText depth="3" style="margin-left: 12px; font-size: 12px">
-        {{ task.stage || (isRunning ? '扫描中…' : '') }}
-        <span v-if="task.durationMs > 0"> · 用时 {{ (task.durationMs / 1000).toFixed(1) }}s</span>
+        {{ displayStage }}
+        <span v-if="durationText"> · {{ durationText }}</span>
       </NText>
     </div>
   </NCard>

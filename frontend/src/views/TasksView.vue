@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted} from 'vue'
 import {useRouter, useRoute, RouterView} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NTabs, NTabPane} from 'naive-ui'
 import AppShell from '@/components/AppShell.vue'
 import {useTasksStore} from '@/stores/tasks'
@@ -8,6 +9,7 @@ import {useTasksStore} from '@/stores/tasks'
 const tasks = useTasksStore()
 const router = useRouter()
 const route = useRoute()
+const {t} = useI18n()
 
 // 只剩两个 tab：
 //   tasks-running  → 运行中（pending + running）
@@ -47,8 +49,8 @@ onMounted(async () => {
       animated
       @update:value="(v: TabKey) => (tabValue = v)"
     >
-      <NTabPane name="tasks-running" :tab="`运行中 (${runningCount})`" />
-      <NTabPane name="tasks-finished" :tab="`已完成 (${finishedCount})`" />
+      <NTabPane name="tasks-running" :tab="t('tasks.runningTab', {n: runningCount})" />
+      <NTabPane name="tasks-finished" :tab="t('tasks.finishedTab', {n: finishedCount})" />
     </NTabs>
 
     <!-- 子页面渲染区（运行中 / 已完成） -->

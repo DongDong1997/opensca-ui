@@ -12,6 +12,7 @@ const DEFAULT_CONFIG: Config = {
   token: '',
   localDB: '',
   theme: 'light',
+  language: 'zh-CN',
   folderReportUseDefault: true,
   folderReportCustomPath: '',
   zipReportUseDefault: true,
@@ -38,6 +39,7 @@ export const useConfigStore = defineStore('config', () => {
   const token = computed(() => config.value.token)
   const localDB = computed(() => config.value.localDB)
   const theme = computed(() => config.value.theme)
+  const language = computed(() => config.value.language)
   const folderReportUseDefault = computed(() => config.value.folderReportUseDefault)
   const folderReportCustomPath = computed(() => config.value.folderReportCustomPath)
   const zipReportUseDefault = computed(() => config.value.zipReportUseDefault)
@@ -128,6 +130,11 @@ export const useConfigStore = defineStore('config', () => {
     config.value.localDB = path
   }
 
+  async function setLanguage(lang: string) {
+    await api.SetLanguage(lang)
+    config.value.language = lang
+  }
+
   async function setFolderReportLocation(useDefault: boolean, customPath: string) {
     await api.SetFolderReportLocation(useDefault, customPath)
     config.value.folderReportUseDefault = useDefault
@@ -154,6 +161,7 @@ export const useConfigStore = defineStore('config', () => {
     token,
     localDB,
     theme,
+    language,
     folderReportUseDefault,
     folderReportCustomPath,
     zipReportUseDefault,
@@ -165,6 +173,7 @@ export const useConfigStore = defineStore('config', () => {
     setMaxConcurrent,
     setToken,
     setLocalDB,
+    setLanguage,
     setFolderReportLocation,
     setZipReportLocation
   }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, nextTick, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {NEmpty, NScrollbar, NSwitch, NSpace, NText} from 'naive-ui'
 import {useUIStore} from '@/stores/ui'
 import type {LogEntry} from '@/stores/tasks'
@@ -7,6 +8,7 @@ import type {LogEntry} from '@/stores/tasks'
 const props = defineProps<{logs: LogEntry[]}>()
 const ui = useUIStore()
 const scrollRef = ref<InstanceType<typeof NScrollbar> | null>(null)
+const {t} = useI18n()
 
 watch(
   () => props.logs.length,
@@ -24,13 +26,13 @@ const text = computed(() => props.logs.map((l) => l.line).join('\n'))
   <div class="log-viewer">
     <div class="log-toolbar">
       <NSpace align="center" :size="8">
-        <NText depth="3">自动滚动</NText>
+        <NText depth="3">{{ t('logviewer.autoScroll') }}</NText>
         <NSwitch :value="ui.logAutoScroll" @update:value="ui.setLogAutoScroll" size="small" />
-        <NText depth="3" style="margin-left: 12px">{{ logs.length }} 行</NText>
+        <NText depth="3" style="margin-left: 12px">{{ t('logviewer.lines', {n: logs.length}) }}</NText>
       </NSpace>
     </div>
     <NScrollbar ref="scrollRef" style="max-height: 480px">
-      <NEmpty v-if="logs.length === 0" description="暂无日志" style="margin-top: 80px" />
+      <NEmpty v-if="logs.length === 0" :description="t('logviewer.empty')" style="margin-top: 80px" />
       <pre v-else class="log-pre">{{ text }}</pre>
     </NScrollbar>
   </div>

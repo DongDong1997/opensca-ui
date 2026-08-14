@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, h} from 'vue'
 import {useRouter, useRoute, RouterLink} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {
   NLayout,
   NLayoutHeader,
@@ -33,18 +34,25 @@ const ui = useUIStore()
 const cfg = useConfigStore()
 const router = useRouter()
 const route = useRoute()
+const {t} = useI18n()
 
 function renderIcon(icon: any) {
   return () => h(NIcon, null, () => h(icon))
 }
 
-const menuOptions: MenuOption[] = [
-  {label: () => h(RouterLink, {to: '/home'}, () => '首页'), key: 'home', icon: renderIcon(HomeOutline)},
-  {label: () => h(RouterLink, {to: '/scan'}, () => '新建扫描'), key: 'scan', icon: renderIcon(ScanOutline)},
-  {label: () => h(RouterLink, {to: '/tasks'}, () => '任务管理'), key: 'tasks', icon: renderIcon(ListOutline)},
-  {label: () => h(RouterLink, {to: '/history'}, () => '历史记录'), key: 'history', icon: renderIcon(TimeOutline)},
-  {label: () => h(RouterLink, {to: '/settings'}, () => '设置'), key: 'settings', icon: renderIcon(SettingsOutline)}
-]
+// computed：语言切换时 label 渲染函数重新求值
+const menuOptions = computed<MenuOption[]>(() => [
+  {label: () => h(RouterLink, {to: '/home'}, () => t('shell.nav.home')), key: 'home', icon: renderIcon(HomeOutline)},
+  {label: () => h(RouterLink, {to: '/scan'}, () => t('shell.nav.scan')), key: 'scan', icon: renderIcon(ScanOutline)},
+  {label: () => h(RouterLink, {to: '/tasks'}, () => t('shell.nav.tasks')), key: 'tasks', icon: renderIcon(ListOutline)},
+  {label: () => h(RouterLink, {to: '/history'}, () => t('shell.nav.history')), key: 'history', icon: renderIcon(TimeOutline)},
+  {label: () => h(RouterLink, {to: '/settings'}, () => t('shell.nav.settings')), key: 'settings', icon: renderIcon(SettingsOutline)}
+])
+
+const headerTitle = computed(() => {
+  const key = route.meta.titleKey as string | undefined
+  return key ? t(key) : 'OpenSCA UI'
+})
 
 // `tasks` / `tasks-history` / `tasks-running` / `tasks-finished` 都归到「任务管理」菜单项；
 // 历史记录子页面顶栏照常显示"任务管理"，所以这里把 history 同族一并归类。
@@ -69,21 +77,21 @@ const tipInfo = computed<{type: 'has' | 'latest' | 'unset'; text: string; title:
     if (cfg.updateInfo.hasUpdate) {
       return {
         type: 'has',
-        text: `有更新，最新版本 v${cfg.updateInfo.latestVersion}，点击更新`,
-        title: `点击前往设置页更新到 v${cfg.updateInfo.latestVersion}`
+        text: t('shell.tip.hasUpdate', {version: cfg.updateInfo.latestVersion}),
+        title: t('shell.tip.hasUpdateTitle', {version: cfg.updateInfo.latestVersion})
       }
     }
     return {
       type: 'latest',
-      text: '已是最新版',
-      title: '已是最新版本，点击查看设置'
+      text: t('shell.tip.latest'),
+      title: t('shell.tip.latestTitle')
     }
   }
   if (!cfg.cliPath) {
     return {
       type: 'unset',
-      text: '未配置 CLI，点击前往设置',
-      title: '尚未配置 opensca-cli，点击前往设置'
+      text: t('shell.tip.unset'),
+      title: t('shell.tip.unsetTitle')
     }
   }
   return null
@@ -117,16 +125,16 @@ const tipInfo = computed<{type: 'has' | 'latest' | 'unset'; text: string; title:
 
     <NLayout>
       <NLayoutHeader bordered class="header">
-        <NText strong style="font-size: 16px">{{ route.meta.title || 'OpenSCA UI' }}</NText>
+        <NText strong style="font-size: 16px">{{ headerTitle }}</NText>
         <div class="header-right">
           <NSpace align="center">
             <!-- 顶栏始终显示 CLI 状态，方便确认版本 -->
-            <NTag v-if="!cfg.cliPath" type="warning" size="small" round>未配置 CLI</NTag>
+            <NTag v-if="!cfg.cliPath" type="warning" size="small" round>{{ t('shell.cli.notConfigured') }}</NTag>
             <NTag v-else-if="cfg.cliValid" type="success" size="small" round>
-              CLI {{ cfg.cliVersion || 'unknown' }}
+              {{ t('shell.cli.valid', {version: cfg.cliVersion || 'unknown'}) }}
             </NTag>
             <NTag v-else type="error" size="small" round>
-              CLI 无效 · {{ cfg.cliVersion || '请检查路径' }}
+              {{ t('shell.cli.invalid', {reason: cfg.cliVersion || t('shell.cli.checkPath')}) }}
             </NTag>
             <!-- 更新状态小提示：启动时自动查一次，每次都显示当前状态，点击都跳设置 -->
             <div

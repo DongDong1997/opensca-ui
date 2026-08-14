@@ -1,7 +1,9 @@
 name: build
 
-# 触发：只在推送 v* 标签时构建打包 + 自动创建 Release（如 v1.0.0）。
+# 触发：只在推送 v* 标签时构建打包 + 自动创建 Release（如 v1.1.0）。
 # push 到 main / PR 不再触发，避免每次提交都耗 CI 额度。
+# 版本号单一来源 = git tag：本工作流从 tag 提取（去 v 前缀）传给 build.ps1 -Version，
+# 由 build.ps1 回写 wails.json / frontend/package.json，NSIS 安装包、exe 文件名、UI 显示全部一致。
 on:
   push:
     tags: ['v*']
@@ -47,9 +49,22 @@ jobs:
         run: ./scripts/fetch-cli.ps1 -Version v3.0.11
         # 升级内置 CLI 版本时，改这里的 -Version 即可。
 
+      # 版本号单一来源：从 git tag 提取（v1.1.0 → 1.1.0）。
+      - name: Compute release version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+          $ver = $tag -replace '^v', ''
+          if ($ver -notmatch '^\d+\.\d+\.\d+$') {
+            throw "tag '$tag' 不符合 vX.Y.Z 格式（如 v1.1.0）"
+          }
+          Write-Host "release version: $ver"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$ver"
+
       - name: Build (wails build -clean -nsis)
         shell: pwsh
-        run: ./build.ps1
+        run: ./build.ps1 -Version ${{ steps.version.outputs.version }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

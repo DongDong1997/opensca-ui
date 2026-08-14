@@ -26,6 +26,8 @@ type Config struct {
 	Token         string `json:"token"`
 	LocalDB       string `json:"localDB"`
 	Theme         string `json:"theme"` // "light" | "dark"
+	// Language 是界面语言（"zh-CN" | "en-US"），前端 i18n 启动时读取。
+	Language      string `json:"language"`
 
 	// FolderReportUseDefault = true 时：文件夹扫描报告落项目本地 .opensca-ui/reports，
 	//                            不可写时回退 %APPDATA%/opensca-ui/reports。
@@ -60,6 +62,7 @@ func Default() Config {
 		Token:                 "",
 		LocalDB:               "",
 		Theme:                 "light",
+		Language:              "zh-CN",
 		FolderReportUseDefault: true,
 		FolderReportCustomPath: "",
 		ZipReportUseDefault:    true,
@@ -197,6 +200,17 @@ func (s *Store) SetTheme(t string) error {
 	}
 	s.mu.Lock()
 	s.cfg.Theme = t
+	s.mu.Unlock()
+	return s.flush()
+}
+
+// SetLanguage 设置界面语言；非法值回退默认中文。
+func (s *Store) SetLanguage(l string) error {
+	if l != "zh-CN" && l != "en-US" {
+		l = "zh-CN"
+	}
+	s.mu.Lock()
+	s.cfg.Language = l
 	s.mu.Unlock()
 	return s.flush()
 }

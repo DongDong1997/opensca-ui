@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NEmpty, NPagination, useMessage} from 'naive-ui'
 import TaskCard from '@/components/TaskCard.vue'
 import {useTasksStore} from '@/stores/tasks'
@@ -9,6 +10,7 @@ import {usePagination} from '@/composables/usePagination'
 const tasks = useTasksStore()
 const router = useRouter()
 const message = useMessage()
+const {t} = useI18n()
 
 const runningTasks = computed(() =>
   tasks.currentSessionList.filter((t) => t.status === 'running' || t.status === 'pending')
@@ -23,7 +25,7 @@ function viewTask(id: string) {
 
 async function cancelTask(id: string) {
   await tasks.cancel(id)
-  message.info('取消请求已发送')
+  message.info(t('tasksRunning.cancelSent'))
 }
 
 async function removeTask(id: string) {
@@ -32,12 +34,12 @@ async function removeTask(id: string) {
 </script>
 
 <template>
-  <NEmpty v-if="runningTasks.length === 0" description="暂无运行中的任务" style="margin-top: 60px" />
+  <NEmpty v-if="runningTasks.length === 0" :description="t('tasksRunning.noRunning')" style="margin-top: 60px" />
   <template v-else>
     <TaskCard
-      v-for="t in pagedItems"
-      :key="t.id"
-      :task="t"
+      v-for="task in pagedItems"
+      :key="task.id"
+      :task="task"
       @view="viewTask"
       @report="viewTask"
       @cancel-task="cancelTask"

@@ -131,6 +131,8 @@ export interface Config {
   token: string
   localDB: string
   theme: 'light' | 'dark' | string
+  /** 界面语言（zh-CN / en-US），与 Go Config.Language 对齐 */
+  language: string
   /** 文件夹扫描：true = 项目本地 .opensca-ui/reports/（不可写回退 AppData） */
   folderReportUseDefault: boolean
   /** 文件夹扫描：useDefault=false 时使用该路径；空字符串回退 AppData */

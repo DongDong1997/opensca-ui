@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NEmpty, NPagination, useMessage} from 'naive-ui'
 import TaskCard from '@/components/TaskCard.vue'
 import {useTasksStore} from '@/stores/tasks'
@@ -9,6 +10,7 @@ import {usePagination} from '@/composables/usePagination'
 const tasks = useTasksStore()
 const router = useRouter()
 const message = useMessage()
+const {t} = useI18n()
 
 const finishedTasks = computed(() =>
   tasks.currentSessionList.filter((t) => t.status === 'success' || t.status === 'failed' || t.status === 'canceled')
@@ -27,12 +29,12 @@ async function removeTask(id: string) {
 </script>
 
 <template>
-  <NEmpty v-if="finishedTasks.length === 0" description="暂无已完成任务" style="margin-top: 60px" />
+  <NEmpty v-if="finishedTasks.length === 0" :description="t('tasksFinished.noFinished')" style="margin-top: 60px" />
   <template v-else>
     <TaskCard
-      v-for="t in pagedItems"
-      :key="t.id"
-      :task="t"
+      v-for="task in pagedItems"
+      :key="task.id"
+      :task="task"
       @view="viewTask"
       @report="viewTask"
       @removed="removeTask"

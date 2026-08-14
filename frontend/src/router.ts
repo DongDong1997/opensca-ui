@@ -7,26 +7,26 @@ const routes: RouteRecordRaw[] = [
     path: '/home',
     name: 'home',
     component: () => import('@/views/HomeView.vue'),
-    meta: {title: '首页'}
+    meta: {titleKey: 'router.home'}
   },
   {
     path: '/welcome',
     name: 'welcome',
     component: () => import('@/views/WelcomeView.vue'),
-    meta: {layout: 'plain', title: '欢迎使用 OpenSCA UI'}
+    meta: {layout: 'plain', titleKey: 'router.welcome'}
   },
   {
     path: '/scan',
     name: 'scan',
     component: () => import('@/views/ScanView.vue'),
-    meta: {title: '新建扫描'}
+    meta: {titleKey: 'router.scan'}
   },
   {
     // 任务管理：布局壳子，只挂运行中/已完成两个子页面；
     // 持久化的全部扫描记录（按项目分组）由"历史记录"页面承担。
     path: '/tasks',
     component: () => import('@/views/TasksView.vue'),
-    meta: {title: '任务管理'},
+    meta: {titleKey: 'router.tasks'},
     children: [
       // 默认直接渲染"运行中"，避免 redirect 链路 / 守卫时序问题
       {path: '', name: 'tasks', component: () => import('@/views/TasksRunningView.vue')},
@@ -39,13 +39,13 @@ const routes: RouteRecordRaw[] = [
     name: 'report',
     component: () => import('@/views/ReportView.vue'),
     props: true,
-    meta: {title: '报告详情'}
+    meta: {titleKey: 'router.report'}
   },
   {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),
-    meta: {title: '设置'}
+    meta: {titleKey: 'router.settings'}
   },
   {
     // 顶栏"历史记录"菜单项：展示所有文件夹的历史任务（每文件夹排除最新一条），
@@ -53,7 +53,7 @@ const routes: RouteRecordRaw[] = [
     path: '/history',
     name: 'history',
     component: () => import('@/views/HistoryView.vue'),
-    meta: {title: '历史记录'}
+    meta: {titleKey: 'router.history'}
   },
   {
     // 单文件夹的历史记录子页面（点击 /history 里的"历史 N 条"标签进入）——
@@ -63,7 +63,7 @@ const routes: RouteRecordRaw[] = [
     name: 'history-folder',
     component: () => import('@/views/TasksHistoryView.vue'),
     props: true,
-    meta: {title: '历史记录'}
+    meta: {titleKey: 'router.history'}
   },
   {path: '/:pathMatch(.*)*', redirect: '/home'}
 ]
@@ -73,17 +73,17 @@ export const router = createRouter({
   routes
 })
 
-// 标题更新 + 未配置 CLI 时的页面重定向
+// 未配置 CLI 时的页面重定向（document.title 由 App.vue 的 locale watcher 负责）
 import {useConfigStore} from '@/stores/config'
+import {applyLanguage} from '@/i18n'
 
 router.beforeEach(async (to, _from, next) => {
   const cfg = useConfigStore()
   if (!cfg.loaded) {
     await cfg.load()
   }
-  if (to.meta.title) {
-    document.title = `${to.meta.title as string} · OpenSCA UI`
-  }
+  // 在首个路由组件挂载前应用持久化语言，避免闪一帧中文
+  applyLanguage(cfg.language || 'zh-CN')
   // 只有真正需要 CLI 的页面才拦；首页、欢迎、设置、报告（已经扫完）都放行
   const requiresCli = to.name !== 'home' && to.name !== 'welcome' && to.name !== 'settings'
   if (requiresCli && !cfg.cliValid && cfg.cliPath !== '') {

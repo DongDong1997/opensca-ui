@@ -602,9 +602,19 @@ func (m *Manager) runOne(t *Task) {
 	// 构造 CLI 参数（一次扫描同时输出 JSON + HTML）
 	args := buildArgs(t.Path, t.ReportPath, t.HTMLPath, cfg.Token, cfg.LocalDB)
 
+	// 工作目录设为 CLI 所在目录：opensca-cli v3.x 会从运行目录自动读取
+	// config.json（内置 CLI 随包带了 config.json + db-demo.json，
+	// 自选的 CLI 也能带上它自己目录里的 config），缺了会报
+	// "not config vuln database origin"。
+	workDir := ""
+	if cfg.CLIPath != "" {
+		workDir = filepath.Dir(cfg.CLIPath)
+	}
+
 	res := runCLI(ctx, CLIRequest{
 		CLIPath: cfg.CLIPath,
 		Args:    args,
+		WorkDir: workDir,
 		Env:     nil,
 		Timeout: 30 * time.Minute,
 	}, onLine)

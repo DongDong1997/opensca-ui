@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NTabs, NTabPane, NCard, NButton, NSpace, NText, NEmpty, NSpin, NTag, NAlert, NPagination, useMessage} from 'naive-ui'
 import {FolderOpenOutline, RefreshOutline, DownloadOutline} from '@vicons/ionicons5'
 import AppShell from '@/components/AppShell.vue'
@@ -19,6 +20,7 @@ const router = useRouter()
 const route = useRoute()
 const tasks = useTasksStore()
 const message = useMessage()
+const {t} = useI18n()
 
 const task = ref<Task | null>(null)
 const report = ref<Report | null>(null)
@@ -26,21 +28,34 @@ const loading = ref(true)
 const drawerShow = ref(false)
 const selectedVuln = ref<Vuln | null>(null)
 
+// 顶栏任务状态 tag 的翻译（数据侧是英文 status 枚举）
+const STATUS_KEYS: Record<string, string> = {
+  pending: 'task.status.pending',
+  running: 'task.status.running',
+  success: 'task.status.success',
+  failed: 'task.status.failed',
+  canceled: 'task.status.canceled'
+}
+const taskStatusLabel = computed(() => {
+  if (!task.value) return ''
+  return t(STATUS_KEYS[task.value.status] || 'task.status.pending')
+})
+
 const currentId = ref(props.id)
 useTaskStream(() => currentId.value)
 
 async function load(id: string) {
   loading.value = true
   currentId.value = id
-  const t = await tasks.fetchDetail(id)
-  task.value = t
-  if (t?.status === 'success' && t.reportPath) {
+  const detail = await tasks.fetchDetail(id)
+  task.value = detail
+  if (detail?.status === 'success' && detail.reportPath) {
     try {
       const r: Report = await api.GetTaskResult(id)
       report.value = r
     } catch (e) {
       report.value = null
-      message.warning('报告解析失败')
+      message.warning(t('report.parseFailed'))
     }
   } else {
     report.value = null
@@ -67,26 +82,26 @@ function onVulnClick(v: Vuln) {
 
 async function openReportFolder() {
   if (!task.value?.reportPath) {
-    message.warning('无对应生成报告')
+    message.warning(t('report.noReportPath'))
     return
   }
   try {
     await api.ShowItemInFolder(task.value.reportPath)
   } catch (e) {
-    message.error(`打开失败: ${String(e)}`)
+    message.error(t('common.openFailed', {msg: String(e)}))
   }
 }
 
 async function openHtmlReport() {
   if (!task.value?.htmlPath) {
-    message.warning('HTML 报告未生成')
+    message.warning(t('report.htmlNotGenerated'))
     return
   }
   try {
     // 在系统浏览器里打开 HTML 报告（比资源管理器少一步操作）
     await api.OpenInFolder(toFileURL(task.value.htmlPath))
   } catch (e) {
-    message.error(`打开失败: ${String(e)}`)
+    message.error(t('common.openFailed', {msg: String(e)}))
   }
 }
 
@@ -138,10 +153,10 @@ function back() {
 // 返回按钮文案也跟来源走
 const backLabel = computed(() => {
   const from = (route.query.from as string | undefined) ?? 'tasks'
-  if (from === 'history-folder' || from === 'history-all') return '← 返回历史记录'
-  if (from === 'tasks-running') return '← 返回运行中'
-  if (from === 'tasks-finished') return '← 返回已完成'
-  return '← 返回任务列表'
+  if (from === 'history-folder' || from === 'history-all') return t('report.backHistory')
+  if (from === 'tasks-running') return t('report.backRunning')
+  if (from === 'tasks-finished') return t('report.backFinished')
+  return t('report.backTasks')
 })
 </script>
 
@@ -151,23 +166,23 @@ const backLabel = computed(() => {
       <div class="topbar">
         <NSpace align="center">
           <NButton @click="back">{{ backLabel }}</NButton>
-          <NText strong style="font-size: 18px">{{ task?.label || '加载中…' }}</NText>
+          <NText strong style="font-size: 18px">{{ task?.label || t('common.loading') }}</NText>
           <NTag v-if="task" :type="task.status === 'success' ? 'success' : task.status === 'failed' ? 'error' : 'info'" size="small">
-            {{ task.status }}
+            {{ taskStatusLabel }}
           </NTag>
         </NSpace>
         <NSpace>
           <NButton @click="refresh" :loading="loading">
             <template #icon><span>↻</span></template>
-            刷新
+            {{ t('report.refresh') }}
           </NButton>
           <NButton @click="openReportFolder">
             <template #icon><span>📁</span></template>
-            打开报告目录
+            {{ t('report.openReportDir') }}
           </NButton>
           <NButton type="primary" :disabled="!task?.htmlPath" @click="openHtmlReport">
             <template #icon><span>🌐</span></template>
-            在浏览器中查看
+            {{ t('report.viewInBrowser') }}
           </NButton>
         </NSpace>
       </div>
@@ -180,12 +195,12 @@ const backLabel = computed(() => {
         <NAlert
           v-if="report?.warning"
           type="warning"
-          :title="'opensca-cli 报告提示'"
+          :title="t('report.cliWarningTitle')"
           style="margin-bottom: 16px"
         >
           {{ report.warning }}
           <div style="margin-top: 4px; font-size: 12px; opacity: 0.85">
-            建议：到设置页配置云 Token 或本地漏洞库，让 CLI 能匹配出真实漏洞数据。
+            {{ t('report.cliWarningHint') }}
           </div>
         </NAlert>
 
@@ -193,18 +208,18 @@ const backLabel = computed(() => {
 
         <NCard style="margin-top: 16px">
           <NTabs type="line" animated default-value="vulns">
-            <NTabPane name="vulns" tab="漏洞列表">
-              <NEmpty v-if="!report" description="暂无报告（任务可能尚未完成）" style="margin: 60px 0" />
+            <NTabPane name="vulns" :tab="t('report.tabVulns')">
+              <NEmpty v-if="!report" :description="t('report.noReport')" style="margin: 60px 0" />
               <VulnGroupTable
                 v-else
                 :components="report.components.filter((c) => c.vulns.length > 0)"
                 @row-click="onVulnClick"
               />
             </NTabPane>
-            <NTabPane name="components" tab="组件依赖">
-              <NEmpty v-if="!report" description="暂无报告" style="margin: 60px 0" />
+            <NTabPane name="components" :tab="t('report.tabComponents')">
+              <NEmpty v-if="!report" :description="t('report.noReportSimple')" style="margin: 60px 0" />
               <div v-else>
-                <NText>共 {{ report.totalComponents }} 个组件</NText>
+                <NText>{{ t('report.totalComponents', {n: report.totalComponents}) }}</NText>
                 <NCard v-for="c in pagedComponents" :key="c.name + c.version" size="small" style="margin-top: 8px" :title="c.name">
                   <template #header-extra>
                     <NTag size="tiny">{{ c.language }}</NTag>
@@ -212,7 +227,7 @@ const backLabel = computed(() => {
                   <NText code style="font-size: 12px">{{ c.version }}</NText>
                   <div style="margin-top: 8px; font-size: 12px; color: var(--n-text-color-3)">PURL: {{ c.purl }}</div>
                   <div v-if="c.vulns.length > 0" style="margin-top: 8px">
-                    <NText depth="3" style="font-size: 12px">{{ c.vulns.length }} 个漏洞</NText>
+                    <NText depth="3" style="font-size: 12px">{{ t('report.vulnCountShort', {n: c.vulns.length}) }}</NText>
                   </div>
                 </NCard>
                 <!-- 组件依赖分页器：组件数 > 页大小时才显示 -->
@@ -228,10 +243,10 @@ const backLabel = computed(() => {
                 </div>
               </div>
             </NTabPane>
-            <NTabPane name="logs" tab="实时日志">
+            <NTabPane name="logs" :tab="t('report.tabLogs')">
               <LogViewer :logs="logs" />
             </NTabPane>
-            <NTabPane name="raw" tab="原始 JSON">
+            <NTabPane name="raw" :tab="t('report.tabRaw')">
               <pre style="background: var(--n-card-color); padding: 16px; border-radius: 6px; overflow: auto; max-height: 600px; font-size: 12px">{{ report ? JSON.stringify(report, null, 2) : '—' }}</pre>
             </NTabPane>
           </NTabs>

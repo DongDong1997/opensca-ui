@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, h, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {
   NCard,
   NSpace,
@@ -36,10 +37,15 @@ import {
 import AppShell from '@/components/AppShell.vue'
 import {useConfigStore} from '@/stores/config'
 import {api} from '@/api'
+import {applyLanguage} from '@/i18n'
 import type {CliUpdateInfo} from '@/api/types'
 
+const {t} = useI18n()
 const cfg = useConfigStore()
 const message = useMessage()
+
+// 应用版本：由 vite define 注入（来源 wails.json 的 info.productVersion），模板里经此引用
+const appVersion = __APP_VERSION__
 
 const cliPath = ref(cfg.cliPath)
 const verifying = ref(false)
@@ -51,6 +57,19 @@ const localDB = ref(cfg.localDB)
 const concurrent = ref(cfg.maxConcurrent)
 const theme = ref(cfg.theme)
 const configPath = ref('')
+
+// 界面语言：即时生效 + 立即持久化（不等"保存设置"，关掉应用也保留）
+const language = ref<string>(cfg.language || 'zh-CN')
+// 语言名用各自母语展示（通用约定：中文 / English），不随当前语言翻译
+const languageOptions = [
+  {label: '中文', value: 'zh-CN'},
+  {label: 'English', value: 'en-US'}
+]
+function onLanguageChange(v: string) {
+  language.value = v
+  applyLanguage(v)
+  void cfg.setLanguage(v).catch(() => {})
+}
 
 // 通用：报告位置
 // useDefault 为 true 时走默认（文件夹扫描 = 项目本地，压缩包扫描 = AppData）
@@ -76,10 +95,10 @@ function onZipDefaultChange(v: boolean) {
   }
 }
 
-const themeOptions = [
-  {label: '浅色', value: 'light'},
-  {label: '深色', value: 'dark'}
-]
+const themeOptions = computed(() => [
+  {label: t('settings.runtime.themeLight'), value: 'light'},
+  {label: t('settings.runtime.themeDark'), value: 'dark'}
+])
 
 // ---------- 左侧菜单（锚点跳转） ----------
 
@@ -90,13 +109,14 @@ function renderIcon(icon: any) {
   return () => h(NIcon, null, () => h(icon))
 }
 
-const sectionOptions: MenuOption[] = [
-  {label: 'CLI', key: 'cli', icon: renderIcon(TerminalOutline)},
-  {label: '通用', key: 'general', icon: renderIcon(OptionsOutline)},
-  {label: '漏洞库', key: 'vuln', icon: renderIcon(ShieldCheckmarkOutline)},
-  {label: '运行', key: 'runtime', icon: renderIcon(SettingsOutline)},
-  {label: '关于', key: 'about', icon: renderIcon(InformationCircleOutline)}
-]
+// computed：语言切换时菜单项 label 重新求值
+const sectionOptions = computed<MenuOption[]>(() => [
+  {label: t('settings.nav.cli'), key: 'cli', icon: renderIcon(TerminalOutline)},
+  {label: t('settings.nav.general'), key: 'general', icon: renderIcon(OptionsOutline)},
+  {label: t('settings.nav.vuln'), key: 'vuln', icon: renderIcon(ShieldCheckmarkOutline)},
+  {label: t('settings.nav.runtime'), key: 'runtime', icon: renderIcon(SettingsOutline)},
+  {label: t('settings.nav.about'), key: 'about', icon: renderIcon(InformationCircleOutline)}
+])
 
 function pickSection(key: string) {
   activeSection.value = key as SectionKey
@@ -155,7 +175,7 @@ async function pickCli() {
       verifyResult.value = null
     }
   } catch (e) {
-    message.error(`选择失败: ${String(e)}`)
+    message.error(t('common.selectFailed', {msg: String(e)}))
   }
 }
 
@@ -174,16 +194,16 @@ async function verify() {
 // ---------- Token 验证 ----------
 
 async function verifyToken() {
-  const t = token.value.trim()
-  if (!t) {
-    tokenVerifyResult.value = {valid: false, message: 'token 为空', source: ''}
-    message.warning('请先填写 token')
+  const tokenText = token.value.trim()
+  if (!tokenText) {
+    tokenVerifyResult.value = {valid: false, message: cfgTokenEmpty(), source: ''}
+    message.warning(t('settings.vuln.tokenFillFirst'))
     return
   }
   verifyingToken.value = true
   tokenVerifyResult.value = null
   try {
-    const info = await api.VerifyToken(t)
+    const info = await api.VerifyToken(tokenText)
     tokenVerifyResult.value = {valid: info.valid, message: info.message, source: info.source}
   } catch (e) {
     tokenVerifyResult.value = {valid: false, message: String(e), source: ''}
@@ -201,13 +221,13 @@ const updateInfo = ref<CliUpdateInfo | null>(null)
 
 const updateStatusTag = computed(() => {
   if (!updateInfo.value) return null
-  if (updateInfo.value.hasUpdate) return {type: 'warning' as const, text: '有新版本'}
-  return {type: 'success' as const, text: '已是最新'}
+  if (updateInfo.value.hasUpdate) return {type: 'warning' as const, text: t('settings.updateModal.hasUpdate')}
+  return {type: 'success' as const, text: t('settings.updateModal.isLatest')}
 })
 
 async function checkUpdate() {
   if (!cfg.cliPath) {
-    message.warning('请先配置 opensca-cli 路径')
+    message.warning(t('settings.updateModal.configCliFirst'))
     return
   }
   checking.value = true
@@ -217,7 +237,7 @@ async function checkUpdate() {
     const info = await api.CheckCliUpdate(cfg.cliPath)
     updateInfo.value = info
   } catch (e) {
-    message.error(`检查更新失败: ${String(e)}`)
+    message.error(t('common.checkUpdateFailed', {msg: String(e)}))
     updateInfo.value = {
       hasUpdate: false,
       currentVersion: cfg.cliVersion || '',
@@ -238,25 +258,25 @@ async function checkUpdate() {
 async function installUpdate() {
   const info = updateInfo.value
   if (!info || !info.downloadURL) {
-    message.warning('没有可用的下载资产，请前往 release 页面手动下载')
+    message.warning(t('settings.updateModal.noDownloadAsset'))
     return
   }
   const target = cfg.cliPath || cliPath.value.trim()
   if (!target) {
-    message.warning('缺少目标路径')
+    message.warning(t('settings.updateModal.missingTargetPath'))
     return
   }
   installing.value = true
   try {
     const res = await api.DownloadAndInstallCliUpdate(info.downloadURL, target)
-    message.success(res.message + (res.backupPath ? `（旧文件已备份到 ${res.backupPath}）` : ''))
+    message.success(res.message + (res.backupPath ? t('settings.updateModal.backedUp', {path: res.backupPath}) : ''))
     if (cliPath.value !== cfg.cliPath) {
       cliPath.value = target
     }
     await verify()
-    updateInfo.value = {...info, hasUpdate: false, message: `已更新到 v${res.installedVersion}`}
+    updateInfo.value = {...info, hasUpdate: false, message: t('settings.updateModal.updatedTo', {version: res.installedVersion})}
   } catch (e) {
-    message.error(`更新失败: ${String(e)}`)
+    message.error(t('common.updateFailed', {msg: String(e)}))
   } finally {
     installing.value = false
   }
@@ -265,13 +285,13 @@ async function installUpdate() {
 async function openReleasePage() {
   const url = updateInfo.value?.releaseURL
   if (!url) {
-    message.warning('没有 release 链接')
+    message.warning(t('settings.updateModal.noReleaseLink'))
     return
   }
   try {
     await api.OpenReleasePage(url)
   } catch (e) {
-    message.error(`打开失败: ${String(e)}`)
+    message.error(t('common.openFailed', {msg: String(e)}))
   }
 }
 
@@ -287,7 +307,7 @@ async function pickDB() {
     const p = await api.PickZip()
     if (p) localDB.value = p
   } catch (e) {
-    message.error(`选择失败: ${String(e)}`)
+    message.error(t('common.selectFailed', {msg: String(e)}))
   }
 }
 
@@ -297,7 +317,7 @@ async function loadConfigPath() {
   try {
     configPath.value = await api.GetConfigPath()
   } catch (e) {
-    configPath.value = '(获取失败: ' + String(e) + ')'
+    configPath.value = `(${t('settings.about.loadFailed')}: ${String(e)})`
   }
 }
 
@@ -333,10 +353,15 @@ async function saveAll() {
     ) {
       await cfg.setZipReportLocation(zipReportUseDefault.value, zipCustom)
     }
-    message.success('设置已保存')
+    message.success(t('common.saveSuccess'))
   } catch (e) {
-    message.error(`保存失败: ${String(e)}`)
+    message.error(t('common.saveFailed', {msg: String(e)}))
   }
+}
+
+// 与 <script setup> 里遮蔽的 t 冲突，token 为空提示单独提取
+function cfgTokenEmpty() {
+  return t('settings.vuln.tokenEmpty')
 }
 </script>
 
@@ -358,30 +383,30 @@ async function saveAll() {
       <!-- 右侧内容：所有 section 始终显示，菜单点击只是平滑滚动 -->
       <main class="settings-content">
         <!-- CLI -->
-        <NCard id="section-cli" title="CLI 设置">
+        <NCard id="section-cli" :title="t('settings.card.cli')">
           <NSpace vertical :size="16">
             <div>
-              <NText strong>opensca-cli 路径</NText>
+              <NText strong>{{ t('settings.cli.path') }}</NText>
               <NSpace :size="8" style="margin-top: 4px; flex-wrap: wrap">
                 <NInput v-model:value="cliPath" placeholder="C:\\path\\to\\opensca-cli.exe" style="width: 420px" />
-                <NButton @click="pickCli">浏览</NButton>
-                <NButton type="primary" :loading="verifying" @click="verify">验证</NButton>
+                <NButton @click="pickCli">{{ t('common.browse') }}</NButton>
+                <NButton type="primary" :loading="verifying" @click="verify">{{ t('common.verify') }}</NButton>
                 <NButton :loading="checking" @click="checkUpdate">
                   <template #icon>
                     <NIcon :component="CloudDownloadOutline" />
                   </template>
-                  更新
+                  {{ t('common.update') }}
                 </NButton>
               </NSpace>
               <div v-if="verifyResult" style="margin-top: 8px">
                 <NSpace align="center">
                   <NTag v-if="verifyResult.valid" type="success" round>
-                    ✓ 验证通过
+                    {{ t('settings.cli.verifyPassed') }}
                   </NTag>
                   <NTag v-else type="error" round>
-                    ✗ 验证失败
+                    {{ t('settings.cli.verifyFailed') }}
                   </NTag>
-                  <NText v-if="verifyResult.version" depth="3">版本: {{ verifyResult.version }}</NText>
+                  <NText v-if="verifyResult.version" depth="3">{{ t('settings.cli.version', {v: verifyResult.version}) }}</NText>
                   <NText v-if="verifyResult.message" depth="3" style="font-size: 12px">{{ verifyResult.message }}</NText>
                 </NSpace>
               </div>
@@ -390,32 +415,50 @@ async function saveAll() {
         </NCard>
 
         <!-- 通用 -->
-        <NCard id="section-general" title="通用" style="margin-top: 16px">
+        <NCard id="section-general" :title="t('settings.card.general')" style="margin-top: 16px">
           <NSpace vertical :size="20">
+            <!-- 界面语言（置顶） -->
+            <div>
+              <NText strong>{{ t('settings.language.label') }}</NText>
+              <div style="margin-top: 8px">
+                <NSelect
+                  :value="language"
+                  :options="languageOptions"
+                  style="width: 200px"
+                  @update:value="onLanguageChange"
+                />
+              </div>
+              <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
+                {{ t('settings.language.desc') }}
+              </NText>
+            </div>
+
+            <NDivider />
+
             <!-- 文件夹扫描报告位置 -->
             <div>
-              <NText strong>生成报告位置（文件夹扫描）</NText>
+              <NText strong>{{ t('settings.general.folderTitle') }}</NText>
               <div style="margin-top: 8px">
                 <NCheckbox
                   v-model:checked="folderReportUseDefault"
                   @update:checked="onFolderDefaultChange"
                 >
-                  是否使用默认位置
+                  {{ t('settings.general.useDefault') }}
                 </NCheckbox>
               </div>
               <NText depth="3" style="font-size: 12px; display: block; margin-top: 6px; line-height: 1.6">
-                选择文件夹扫描时，默认生成在文件夹根目录的 <code>.opensca-ui/reports</code> 中。
-                无法生成 <code>.opensca-ui</code> 时，默认位置在
-                <code>{{ cfg.defaultReportsPath || 'C:\\Users\\&lt;用户名&gt;\\AppData\\Roaming\\opensca-ui\\reports' }}</code>。
+                {{ t('settings.general.folderHint1') }} <code>.opensca-ui/reports</code>{{ t('settings.general.folderHint2') }}
+                <code>.opensca-ui</code>{{ t('settings.general.folderHint3') }}
+                <code>{{ cfg.defaultReportsPath || t('settings.general.defaultPathExample') }}</code>{{ t('settings.general.folderHint4') }}
               </NText>
               <div v-if="!folderReportUseDefault" style="margin-top: 10px">
                 <NInput
                   v-model:value="folderReportInput"
-                  placeholder="自定义报告目录路径"
+                  :placeholder="t('settings.general.customPathPlaceholder')"
                   style="width: 520px"
                 />
                 <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-                  路径下会自动创建 <code>reports/</code> 与 <code>logs/</code> 子目录。
+                  {{ t('settings.general.autoSubdirs1') }} <code>reports/</code> {{ t('settings.general.autoSubdirs2') }} <code>logs/</code> {{ t('settings.general.autoSubdirs3') }}
                 </NText>
               </div>
             </div>
@@ -424,26 +467,26 @@ async function saveAll() {
 
             <!-- 压缩包扫描报告位置 -->
             <div>
-              <NText strong>生成报告位置（压缩包扫描）</NText>
+              <NText strong>{{ t('settings.general.zipTitle') }}</NText>
               <div style="margin-top: 8px">
                 <NCheckbox
                   v-model:checked="zipReportUseDefault"
                   @update:checked="onZipDefaultChange"
                 >
-                  是否使用默认位置
+                  {{ t('settings.general.useDefault') }}
                 </NCheckbox>
               </div>
               <NText depth="3" style="font-size: 12px; display: block; margin-top: 6px; line-height: 1.6">
-                默认位置就是 <code>{{ cfg.defaultReportsPath || 'C:\\Users\\&lt;用户名&gt;\\AppData\\Roaming\\opensca-ui\\reports' }}</code>。
+                {{ t('settings.general.zipHint') }} <code>{{ cfg.defaultReportsPath || t('settings.general.defaultPathExample') }}</code>{{ t('settings.general.folderHint4') }}
               </NText>
               <div v-if="!zipReportUseDefault" style="margin-top: 10px">
                 <NInput
                   v-model:value="zipReportInput"
-                  placeholder="自定义报告目录路径"
+                  :placeholder="t('settings.general.customPathPlaceholder')"
                   style="width: 520px"
                 />
                 <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-                  路径下会自动创建 <code>reports/</code> 与 <code>logs/</code> 子目录。
+                  {{ t('settings.general.autoSubdirs1') }} <code>reports/</code> {{ t('settings.general.autoSubdirs2') }} <code>logs/</code> {{ t('settings.general.autoSubdirs3') }}
                 </NText>
               </div>
             </div>
@@ -451,55 +494,55 @@ async function saveAll() {
         </NCard>
 
         <!-- 漏洞库 -->
-        <NCard id="section-vuln" title="漏洞库" style="margin-top: 16px">
+        <NCard id="section-vuln" :title="t('settings.card.vuln')" style="margin-top: 16px">
           <NSpace vertical :size="16">
             <div>
-              <NText strong>云漏洞库 Token</NText>
+              <NText strong>{{ t('settings.vuln.token') }}</NText>
               <NSpace :size="8" align="center" style="margin-top: 4px">
-                <NInput v-model:value="token" placeholder="可选，留空时仅使用本地漏洞库" type="password" show-password-on="click" style="width: 420px" />
+                <NInput v-model:value="token" :placeholder="t('settings.vuln.tokenPlaceholder')" type="password" show-password-on="click" style="width: 420px" />
                 <NButton :loading="verifyingToken" :disabled="!token.trim()" @click="verifyToken">
-                  验证
+                  {{ t('common.verify') }}
                 </NButton>
                 <NTag v-if="tokenVerifyResult" :type="tokenVerifyResult.valid ? 'success' : 'error'" size="small">
-                  {{ tokenVerifyResult.valid ? '✓ 有效' : '✗ 无效' }}
+                  {{ tokenVerifyResult.valid ? t('settings.vuln.valid') : t('settings.vuln.invalid') }}
                 </NTag>
               </NSpace>
               <NText v-if="tokenVerifyResult" depth="3" style="font-size: 12px; display: block; margin-top: 4px">
                 {{ tokenVerifyResult.message }}
-                <span v-if="tokenVerifyResult.source"> · 验证端点: {{ tokenVerifyResult.source }}</span>
+                <span v-if="tokenVerifyResult.source"> · {{ t('settings.vuln.verifyEndpoint', {source: tokenVerifyResult.source}) }}</span>
               </NText>
               <NText depth="3" style="font-size: 12px">
-                去 <a href="https://opensca.xmirror.cn" target="_blank" rel="noopener" style="color: var(--n-primary-color)">opensca.xmirror.cn</a> 免费申请
+                {{ t('settings.vuln.applyCloudBefore') }} <a href="https://opensca.xmirror.cn" target="_blank" rel="noopener" style="color: var(--n-primary-color)">opensca.xmirror.cn</a> {{ t('settings.vuln.applyCloudAfter') }}
               </NText>
               <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-                opensca-ui 会作为 <code>-token</code> 参数传给 CLI（v2.x/v3.x 均支持），无需手动配 config.json。
+                {{ t('settings.vuln.tokenPassHint1') }} <code>-token</code> {{ t('settings.vuln.tokenPassHint2') }}
               </NText>
             </div>
             <div>
-              <NText strong>本地漏洞库（db.json）</NText>
+              <NText strong>{{ t('settings.vuln.localDB') }}</NText>
               <NSpace :size="8" style="margin-top: 4px">
-                <NInput v-model:value="localDB" placeholder="可选，db.json 完整路径" style="width: 420px" />
-                <NButton @click="pickDB">浏览</NButton>
+                <NInput v-model:value="localDB" :placeholder="t('settings.vuln.localDBPlaceholder')" style="width: 420px" />
+                <NButton @click="pickDB">{{ t('common.browse') }}</NButton>
               </NSpace>
               <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-                v3.x 通过 <code>-config</code> 注入；opensca-ui 会自动生成临时 config.json（只填 <code>origin.json</code>）传给 CLI。
+                {{ t('settings.vuln.localDBHint1') }} <code>-config</code> {{ t('settings.vuln.localDBHint2') }}
               </NText>
             </div>
           </NSpace>
         </NCard>
 
         <!-- 运行 -->
-        <NCard id="section-runtime" title="运行设置" style="margin-top: 16px">
+        <NCard id="section-runtime" :title="t('settings.card.runtime')" style="margin-top: 16px">
           <NSpace vertical :size="16">
             <div>
-              <NText strong>最大并发扫描数</NText>
+              <NText strong>{{ t('settings.runtime.maxConcurrent') }}</NText>
               <div style="margin-top: 4px">
                 <NInputNumber v-model:value="concurrent" :min="1" :max="10" />
-                <NText depth="3" style="margin-left: 12px; font-size: 12px">建议 2-4，过高会竞争 IO</NText>
+                <NText depth="3" style="margin-left: 12px; font-size: 12px">{{ t('settings.runtime.ioHint') }}</NText>
               </div>
             </div>
             <div>
-              <NText strong>界面主题</NText>
+              <NText strong>{{ t('settings.runtime.theme') }}</NText>
               <div style="margin-top: 4px">
                 <NSelect v-model:value="theme" :options="themeOptions" style="width: 160px" />
               </div>
@@ -508,15 +551,15 @@ async function saveAll() {
         </NCard>
 
         <!-- 关于 -->
-        <NCard id="section-about" title="关于" style="margin-top: 16px">
+        <NCard id="section-about" :title="t('settings.card.about')" style="margin-top: 16px">
           <NSpace vertical :size="8">
-            <NText>OpenSCA UI v0.1.0</NText>
+            <NText>{{ t('settings.about.version', {v: appVersion}) }}</NText>
             <NText depth="3" style="font-size: 12px">
-              本软件是 opensca-cli 的桌面图形界面，基于 Wails + Vue 3 + Naive UI 构建。
+              {{ t('settings.about.builtWith') }}
             </NText>
             <NText depth="3" style="font-size: 12px">
-              配置文件位置：
-              <code style="user-select: all">{{ configPath || '加载中…' }}</code>
+              {{ t('settings.about.configPath') }}
+              <code style="user-select: all">{{ configPath || t('settings.about.loading') }}</code>
             </NText>
           </NSpace>
         </NCard>
@@ -524,7 +567,7 @@ async function saveAll() {
         <!-- 保存按钮 -->
         <div class="save-bar">
           <NSpace justify="end" align="center">
-            <NButton type="primary" size="large" @click="saveAll">保存设置</NButton>
+            <NButton type="primary" size="large" @click="saveAll">{{ t('settings.saveBar') }}</NButton>
           </NSpace>
         </div>
       </main>
@@ -534,7 +577,7 @@ async function saveAll() {
     <NModal
       v-model:show="updateModalVisible"
       preset="card"
-      title="检查 opensca-cli 更新"
+      :title="t('settings.updateModal.title')"
       style="max-width: 640px"
       :mask-closable="!installing"
       :close-on-esc="!installing"
@@ -544,12 +587,12 @@ async function saveAll() {
 
       <div v-else-if="updateInfo">
         <NSpace align="center" :size="12" style="margin-bottom: 12px">
-          <NText>当前</NText>
-          <NTag round>v{{ updateInfo.currentVersion || '未知' }}</NTag>
+          <NText>{{ t('settings.updateModal.current') }}</NText>
+          <NTag round>v{{ updateInfo.currentVersion || t('settings.updateModal.unknown') }}</NTag>
           <NText>→</NText>
-          <NText>最新</NText>
+          <NText>{{ t('settings.updateModal.latest') }}</NText>
           <NTag :type="updateInfo.hasUpdate ? 'warning' : 'success'" round>
-            v{{ updateInfo.latestVersion || '未知' }}
+            v{{ updateInfo.latestVersion || t('settings.updateModal.unknown') }}
           </NTag>
           <NTag v-if="updateStatusTag" :type="updateStatusTag.type" size="small" round>
             {{ updateStatusTag.text }}
@@ -561,11 +604,11 @@ async function saveAll() {
         </NText>
 
         <NText v-if="updateInfo.assetName" depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-          下载资产：{{ updateInfo.assetName }}
+          {{ t('settings.updateModal.downloadAsset', {name: updateInfo.assetName}) }}
         </NText>
 
         <NCollapse v-if="updateInfo.changelog" style="margin-top: 12px">
-          <NCollapseItem title="更新日志" name="changelog">
+          <NCollapseItem :title="t('settings.updateModal.changelog')" name="changelog">
             <NScrollbar style="max-height: 240px">
               <pre class="changelog">{{ updateInfo.changelog }}</pre>
             </NScrollbar>
@@ -575,12 +618,12 @@ async function saveAll() {
         <NDivider />
 
         <NSpace justify="end">
-          <NButton @click="closeUpdateModal" :disabled="installing">关闭</NButton>
+          <NButton @click="closeUpdateModal" :disabled="installing">{{ t('settings.updateModal.close') }}</NButton>
           <NButton @click="openReleasePage" :disabled="installing">
             <template #icon>
               <NIcon :component="ReloadOutline" />
             </template>
-            打开 release 页面
+            {{ t('settings.updateModal.openRelease') }}
           </NButton>
           <NButton
             v-if="updateInfo.hasUpdate && updateInfo.downloadURL"
@@ -591,12 +634,12 @@ async function saveAll() {
             <template #icon>
               <NIcon :component="CloudDownloadOutline" />
             </template>
-            下载并替换
+            {{ t('settings.updateModal.downloadReplace') }}
           </NButton>
         </NSpace>
 
         <NText depth="3" style="font-size: 12px; display: block; margin-top: 12px">
-          提示：替换前会自动备份原文件为 <code>opensca-cli.exe.bak</code>，失败可手动恢复。
+          {{ t('settings.updateModal.backupHint') }}
         </NText>
       </div>
     </NModal>

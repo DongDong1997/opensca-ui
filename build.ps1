@@ -1,26 +1,61 @@
 ﻿# Build wrapper for OpenSCA UI.
 #
-# Reads productVersion from wails.json (single source of truth) and invokes
-# `wails build -clean -nsis -o opensca-ui-<version>.exe`. Both the bare exe
-# and the NSIS installer filename pick up the version automatically.
+# 版本号解析（git tag 单一来源）：
+#   - 传 -Version X.Y.Z（CI 从 vX.Y.Z tag 提取后传入）→ 权威发布版本。
+#     会回写 wails.json 的 info.productVersion 并同步 frontend/package.json(+lock)，
+#     NSIS 安装包元信息、输出文件名、前端构建（UI 里显示的版本号）全部用它。
+#   - 不传 -Version → 回退用 wails.json 已提交的 productVersion（本地开发/手动构建）。
+#
+# 发布流程：
+#   git tag -a v1.1.0 -m "..." && git push origin v1.1.0
+#   CI 自动从 tag 提取版本 → ./build.ps1 -Version 1.1.0
 #
 # Output filenames produced:
 #   build\bin\opensca-ui-<version>.exe                  (single exe)
 #   build\bin\opensca-ui-<version>-amd64-installer.exe  (NSIS installer)
 #
-# To release: bump productVersion in wails.json — both filenames follow.
-#
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File build.ps1
+#   powershell -ExecutionPolicy Bypass -File build.ps1 -Version 1.1.0
+
+param(
+    # 发布版本（来自 git tag，形如 1.1.0）；不传则回退 wails.json 的 productVersion。
+    [string]$Version
+)
 
 $ErrorActionPreference = 'Stop'
 
-# 1. 读版本号（来自 wails.json 的 info.productVersion）
+# 1. 版本号解析：-Version 优先（git tag 单一来源）；否则回退 wails.json
 $wailsJsonPath = Join-Path $PSScriptRoot 'wails.json'
 $cfg = Get-Content $wailsJsonPath -Raw | ConvertFrom-Json
+
+if ($Version) {
+    if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+        throw "非法版本号 '$Version'，需满足 X.Y.Z（如 1.1.0）"
+    }
+    if ($cfg.info.productVersion -ne $Version) {
+        # 回写 wails.json：让 NSIS 安装包元信息 + 前端 vite define（UI 版本号）都用 tag 版本。
+        $raw = Get-Content $wailsJsonPath -Raw
+        $raw = [regex]::Replace($raw, '"productVersion"\s*:\s*"[^"]*"', ('"productVersion": "{0}"' -f $Version))
+        [System.IO.File]::WriteAllText($wailsJsonPath, $raw)
+        $cfg = Get-Content $wailsJsonPath -Raw | ConvertFrom-Json
+        Write-Host "已把 wails.json productVersion 回写为 $Version" -ForegroundColor Yellow
+    }
+    # 同步前端元数据版本，避免 package.json 与 wails.json 漂移
+    foreach ($p in @('frontend\package.json', 'frontend\package-lock.json')) {
+        $path = Join-Path $PSScriptRoot $p
+        if (-not (Test-Path $path)) { continue }
+        $j = Get-Content $path -Raw | ConvertFrom-Json
+        $j.version = $Version
+        if ($j.packages -and $j.packages.'') { $j.packages.''.version = $Version }
+        [System.IO.File]::WriteAllText($path, ($j | ConvertTo-Json -Depth 100))
+    }
+    Write-Host "已同步 frontend/package.json 与 package-lock.json 版本为 $Version" -ForegroundColor DarkGray
+}
+
 $version = $cfg.info.productVersion
 if (-not $version) {
-    throw "wails.json 里找不到 info.productVersion"
+    throw "wails.json 里找不到 info.productVersion；本地构建请先在 wails.json 填版本，或传 -Version"
 }
 Write-Host "Building OpenSCA UI v$version ..." -ForegroundColor Cyan
 

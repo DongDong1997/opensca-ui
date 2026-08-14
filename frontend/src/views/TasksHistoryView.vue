@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
 import {NButton, NEmpty, NIcon, NPagination, NSpace, NText, NTooltip, useMessage} from 'naive-ui'
 import {ArrowBackOutline, FolderOpenOutline} from '@vicons/ionicons5'
 import AppShell from '@/components/AppShell.vue'
@@ -13,6 +14,7 @@ const props = defineProps<{path: string}>()
 const tasks = useTasksStore()
 const router = useRouter()
 const message = useMessage()
+const {t} = useI18n()
 
 // 路径解码（路由过来的是 encodeURIComponent 过的）
 const folderPath = computed(() => {
@@ -67,7 +69,7 @@ function viewTask(id: string) {
 
 async function cancelTask(id: string) {
   await tasks.cancel(id)
-  message.info('取消请求已发送')
+  message.info(t('tasksRunning.cancelSent'))
 }
 
 async function removeTask(id: string) {
@@ -84,7 +86,7 @@ async function removeTask(id: string) {
           <template #icon>
             <NIcon :component="ArrowBackOutline" />
           </template>
-          返回历史记录
+          {{ t('tasksHistory.back') }}
         </NButton>
         <NSpace align="center" :size="6" class="path-row">
           <NIcon :component="FolderOpenOutline" :size="14" color="#2080f0" />
@@ -94,18 +96,18 @@ async function removeTask(id: string) {
             </template>
             {{ pathDisplay }}
           </NTooltip>
-          <NButton size="tiny" tertiary @click="openFolder">打开</NButton>
+          <NButton size="tiny" tertiary @click="openFolder">{{ t('tasksHistory.open') }}</NButton>
         </NSpace>
       </div>
 
       <!-- 历史记录列表（无 tab —— 与任务管理布局完全不同） -->
-      <NEmpty v-if="historyTasks.length === 0" description="该文件夹暂无历史记录" style="margin-top: 40px" />
+      <NEmpty v-if="historyTasks.length === 0" :description="t('tasksHistory.noFolderHistory')" style="margin-top: 40px" />
       <template v-else>
         <div class="history-list">
           <TaskCard
-            v-for="t in pagedItems"
-            :key="t.id"
-            :task="t"
+            v-for="item in pagedItems"
+            :key="item.id"
+            :task="item"
             hide-progress
             @view="viewTask"
             @report="viewTask"
