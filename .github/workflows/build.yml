@@ -58,9 +58,29 @@ jobs:
           path: build/bin/
           if-no-files-found: error
 
+      # 把 tag 的注解消息（git tag -a ... -m "..."）当作 Release 正文。
+      # tag 没写消息（轻量 tag）→ 回退 GitHub 自动生成。
+      - name: Extract release notes from tag message
+        id: relnotes
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+          git fetch --tags --force origin 2>$null | Out-Null
+          $body = ((git tag -l --format='%(contents:body)' $tag) -join "`n").Trim()
+          if (-not $body) { $body = ((git tag -l --format='%(contents)' $tag) -join "`n").Trim() }
+          if (-not $body) {
+            Write-Host 'tag 没有写消息 → 使用 GitHub 自动生成的 release notes'
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'notes_empty=true'
+            New-Item -ItemType File -Path "$env:RUNNER_TEMP\relnotes.md" -Force | Out-Null
+          } else {
+            Write-Host "使用 tag 消息作为 release notes（$($body.Length) chars）"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'notes_empty=false'
+            Set-Content -Path "$env:RUNNER_TEMP\relnotes.md" -Value $body -Encoding utf8
+          }
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: build/bin/*
-          generate_release_notes: true
+          body_path: ${{ runner.temp }}/relnotes.md
+          generate_release_notes: ${{ steps.relnotes.outputs.notes_empty == 'true' }}
